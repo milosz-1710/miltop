@@ -72,13 +72,15 @@ Następnie na GitHubie wybierz **Releases → Draft a new release**, wskaż tag
 
 ## 6. Paczki dystrybucyjne
 
-Najpierw warto opublikować i przetestować kod źródłowy. Kolejny krok to
-automatyczne budowanie:
+Po wysłaniu tagu `v1.1.0` GitHub Actions automatycznie buduje i dołącza do
+wydania:
 
-- wheel/source archive dla `pipx` i PyPI;
+- wheel oraz archiwum źródłowe dla `pipx`/Pythona;
 - `.deb` dla Debiana/Ubuntu/Minta;
-- `.rpm` dla Fedory (lokalna instalacja przez DNF);
-- `PKGBUILD` dla AUR.
+- `.rpm` dla Fedory, instalowane przez DNF.
+
+Postęp można obserwować w zakładce **Actions**. Gotowe pliki pojawią się w
+zakładce **Releases**. `PKGBUILD` dla AUR będzie osobnym kolejnym krokiem.
 
 Repozytorium COPR można dodać później, aby Fedora aktualizowała miltop przez
 zwykłe `dnf upgrade`. AUR publikuje przepis `PKGBUILD`, a nie gotowy oficjalny

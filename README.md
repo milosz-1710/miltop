@@ -29,7 +29,24 @@ in English and Polish.
 
 ## Installation
 
-### From source (recommended for the first public release)
+### Debian, Ubuntu and Linux Mint
+
+Download the `.deb` file from the latest GitHub release and install it with:
+
+```bash
+sudo apt install ./miltop_1.1.0_all.deb
+```
+
+### Fedora
+
+Download the `.rpm` file from the latest GitHub release and install it through
+DNF:
+
+```bash
+sudo dnf install ./miltop-1.1.0-1.noarch.rpm
+```
+
+### From source
 
 ```bash
 git clone https://github.com/milosz-1710/miltop.git
@@ -44,8 +61,8 @@ For an isolated installation you can use `pipx`:
 pipx install git+https://github.com/milosz-1710/miltop.git
 ```
 
-Distribution packages (`.deb`, `.rpm` and an Arch `PKGBUILD`) are planned for
-the first packaged release.
+Both packages install the `miltop` command system-wide and use the distribution's
+`python3-psutil` dependency. An Arch `PKGBUILD` is planned next.
 
 ## Usage
 

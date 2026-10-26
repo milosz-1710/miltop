@@ -1,0 +1,68 @@
+name: Build release packages
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build and publish release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Read and validate version
+        id: version
+        shell: bash
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          source_version="$(sed -n 's/^VERSION = "\([^"]*\)"/\1/p' miltop.py)"
+          if [[ "$version" != "$source_version" ]]; then
+            echo "Tag v${version} does not match source version ${source_version}" >&2
+            exit 1
+          fi
+          echo "number=$version" >>"$GITHUB_OUTPUT"
+
+      - name: Test application
+        run: |
+          python -m pip install .
+          python -m py_compile miltop.py
+          miltop --version
+          miltop --snapshot
+
+      - name: Install packaging tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes dpkg-dev rpm
+          python -m pip install build
+
+      - name: Build Python, Debian and RPM packages
+        env:
+          VERSION: ${{ steps.version.outputs.number }}
+        run: |
+          python -m build --outdir dist
+          bash packaging/build-deb.sh "$VERSION" dist
+          bash packaging/build-rpm.sh "$VERSION" dist
+          dpkg-deb --info "dist/miltop_${VERSION}_all.deb"
+          rpm -qip "dist/miltop-${VERSION}-1.noarch.rpm"
+
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.number }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            --title "miltop ${VERSION}" \
+            --generate-notes \
+            dist/*.deb dist/*.rpm dist/*.whl dist/*.tar.gz
