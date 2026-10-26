@@ -2,6 +2,11 @@ name: Build release packages
 
 on:
   workflow_dispatch:
+    inputs:
+      version:
+        description: "Existing release tag version, without the v prefix"
+        required: true
+        type: string
   push:
     tags:
       - "v*"
@@ -17,6 +22,8 @@ jobs:
     steps:
       - name: Check out source
         uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && format('v{0}', inputs.version) || github.ref }}
 
       - name: Set up Python
         uses: actions/setup-python@v7
@@ -26,8 +33,10 @@ jobs:
       - name: Read and validate version
         id: version
         shell: bash
+        env:
+          MANUAL_VERSION: ${{ inputs.version }}
         run: |
-          version="${GITHUB_REF_NAME#v}"
+          version="${MANUAL_VERSION:-${GITHUB_REF_NAME#v}}"
           source_version="$(sed -n 's/^VERSION = "\([^"]*\)"/\1/p' miltop.py)"
           if [[ "$version" != "$source_version" ]]; then
             echo "Tag v${version} does not match source version ${source_version}" >&2
@@ -63,7 +72,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ steps.version.outputs.number }}
         run: |
-          gh release create "$GITHUB_REF_NAME" \
+          gh release create "v${VERSION}" \
             --title "miltop ${VERSION}" \
             --generate-notes \
             dist/*.deb dist/*.rpm dist/*.whl dist/*.tar.gz
