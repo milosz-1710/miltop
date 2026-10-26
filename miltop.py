@@ -9,8 +9,11 @@ import json
 import locale
 import math
 import os
+import re
 import signal
+import subprocess
 import sys
+import threading
 import time
 from collections import deque
 from dataclasses import dataclass, field
@@ -20,7 +23,7 @@ from typing import Any
 import psutil
 
 
-VERSION = "1.1.0"
+VERSION = "1.2.0"
 BLOCKS = " ▁▂▃▄▅▆▇█"
 CONFIG_FILE = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config")) / "miltop" / "config.json"
 LOGO = (
@@ -41,6 +44,7 @@ TEXTS: dict[str, dict[str, str]] = {
         "processor": "Procesor",
         "threads": "{count} wątków",
         "logical_cpu": "{count} logicznych CPU",
+        "cpu_topology": "{cores} rdzenie • {threads} wątków",
         "load": "obciążenie",
         "gpu_usage": "Użycie układu graficznego",
         "memory": "Pamięć",
@@ -48,9 +52,14 @@ TEXTS: dict[str, dict[str, str]] = {
         "disk": "Dysk",
         "network": "Sieć",
         "processes": "Procesy",
-        "footer": "↑↓ wybór   Enter otwórz   klik: kafelek   L język   Q wyjście",
+        "footer": "↑↓ wybór   Enter otwórz   R rdzenie   L język   Q wyjście",
         "footer_process": "↑↓ proces   S CPU/RAM   Backspace zakończ   Esc wróć   Q wyjście",
         "footer_confirm": "←→ wybór   Enter zatwierdź   Esc anuluj",
+        "footer_cores": "R/Esc wróć   PgUp/PgDn strona   L język   Q wyjście",
+        "cpu_cores": "RDZENIE PROCESORA",
+        "cores_hint": "Bieżące obciążenie i ostatnie pomiary każdego logicznego CPU",
+        "memory_hardware_unknown": "Typ RAM niewykryty (opcjonalnie zainstaluj inxi)",
+        "page": "strona {current}/{total}",
         "last_samples": "Ostatnie pomiary",
         "current_usage": "Bieżące użycie",
         "used_available_total": "Używane {used} • dostępne {available} • razem {total}",
@@ -87,6 +96,7 @@ TEXTS: dict[str, dict[str, str]] = {
         "processor": "Processor",
         "threads": "{count} threads",
         "logical_cpu": "{count} logical CPUs",
+        "cpu_topology": "{cores} cores • {threads} threads",
         "load": "load",
         "gpu_usage": "Graphics processor usage",
         "memory": "Memory",
@@ -94,9 +104,14 @@ TEXTS: dict[str, dict[str, str]] = {
         "disk": "Disk",
         "network": "Network",
         "processes": "Processes",
-        "footer": "↑↓ select   Enter open   click: tile   L language   Q quit",
+        "footer": "↑↓ select   Enter open   R cores   L language   Q quit",
         "footer_process": "↑↓ process   S CPU/RAM   Backspace end   Esc back   Q quit",
         "footer_confirm": "←→ select   Enter confirm   Esc cancel",
+        "footer_cores": "R/Esc back   PgUp/PgDn page   L language   Q quit",
+        "cpu_cores": "PROCESSOR CORES",
+        "cores_hint": "Current load and recent activity for every logical CPU",
+        "memory_hardware_unknown": "RAM type not detected (optionally install inxi)",
+        "page": "page {current}/{total}",
         "last_samples": "Recent activity",
         "current_usage": "Current usage",
         "used_available_total": "Used {used} • available {available} • total {total}",
@@ -224,9 +239,14 @@ class Snapshot:
     timestamp: float = 0.0
     cpu: float = 0.0
     per_cpu: list[float] = field(default_factory=list)
+    cpu_model: str = ""
+    physical_cores: int = 0
     cpu_freq: float = 0.0
+    cpu_freq_max: float = 0.0
     temperature: float | None = None
     memory: Any = None
+    memory_hardware: str = ""
+    memory_model: str = ""
     swap: Any = None
     disk: Any = None
     disk_read_rate: float = 0.0
@@ -269,8 +289,83 @@ class Sampler:
         self.last_process_sample = 0.0
         self.temperature: float | None = None
         self.temperature_checked = 0.0
+        self.core_histories: list[deque[float]] = []
+        self.cpu_model = self._read_cpu_model()
+        self.physical_cores = int(psutil.cpu_count(logical=False) or 0)
+        self.memory_hardware = ""
+        self.memory_model = ""
+        threading.Thread(target=self._load_memory_hardware, name="miltop-hardware", daemon=True).start()
         self.gpu_path, self.gpu_name = self._find_gpu()
         psutil.cpu_percent(interval=None, percpu=True)
+
+    def _load_memory_hardware(self) -> None:
+        self.memory_hardware, self.memory_model = self._read_memory_hardware()
+
+    @staticmethod
+    def _read_cpu_model() -> str:
+        """Read a human-friendly CPU model without starting another process."""
+        try:
+            for line in Path("/proc/cpuinfo").read_text(errors="replace").splitlines():
+                if line.lower().startswith("model name") and ":" in line:
+                    return " ".join(line.split(":", 1)[1].split())
+        except OSError:
+            pass
+        return "CPU"
+
+    @staticmethod
+    def _read_memory_hardware() -> tuple[str, str]:
+        """Best-effort DIMM identification through unprivileged inxi output."""
+        try:
+            result = subprocess.run(
+                ["inxi", "-mxxx", "--no-host", "--no-ssl", "--color", "0"],
+                capture_output=True,
+                text=True,
+                timeout=3,
+                check=False,
+            )
+        except (OSError, subprocess.SubprocessError):
+            return "", ""
+        if result.returncode != 0:
+            return "", ""
+
+        flat = " ".join(result.stdout.split())
+        devices = re.split(r"\bDevice-\d+:\s*", flat)[1:]
+        if not devices:
+            return "", ""
+
+        def values(pattern: str) -> list[str]:
+            found: list[str] = []
+            for device in devices:
+                match = re.search(pattern, device, re.IGNORECASE)
+                if match:
+                    value = " ".join(match.group(1).split())
+                    if value and value not in found:
+                        found.append(value)
+            return found
+
+        types = values(r"\btype:\s*(\S+)")
+        speeds = values(r"\bspeed:\s*([0-9.]+\s*(?:MT/s|MHz))")
+        sizes = values(r"\bsize:\s*([0-9.]+\s*(?:[KMGT]i?B))")
+        manufacturers = values(r"\bmanufacturer:\s*(.+?)(?=\s+(?:part-no|serial):|$)")
+        parts = values(r"\bpart-no:\s*(.+?)(?=\s+serial:|$)")
+
+        hardware: list[str] = []
+        if types:
+            hardware.append("/".join(types))
+        if speeds:
+            hardware.append("/".join(speeds))
+        if sizes:
+            size_text = sizes[0] if len(sizes) == 1 else "+".join(sizes)
+            hardware.append(f"{len(devices)}×{size_text}" if len(sizes) == 1 else size_text)
+
+        models: list[str] = []
+        for index in range(max(len(manufacturers), len(parts))):
+            maker = manufacturers[index] if index < len(manufacturers) else ""
+            part = parts[index] if index < len(parts) else ""
+            model = " ".join(value for value in (maker, part) if value)
+            if model and model not in models:
+                models.append(model)
+        return " • ".join(hardware), " / ".join(models)
 
     @staticmethod
     def _find_gpu() -> tuple[Path | None, str]:
@@ -346,6 +441,12 @@ class Sampler:
 
         per_cpu = psutil.cpu_percent(interval=None, percpu=True)
         cpu = sum(per_cpu) / len(per_cpu) if per_cpu else 0.0
+        while len(self.core_histories) < len(per_cpu):
+            self.core_histories.append(deque(maxlen=120))
+        if len(self.core_histories) > len(per_cpu):
+            self.core_histories = self.core_histories[: len(per_cpu)]
+        for index, value in enumerate(per_cpu):
+            self.core_histories[index].append(float(value))
         memory = psutil.virtual_memory()
         swap = psutil.swap_memory()
         disk = psutil.disk_usage("/")
@@ -383,9 +484,14 @@ class Sampler:
             timestamp=time.time(),
             cpu=cpu,
             per_cpu=per_cpu,
+            cpu_model=self.cpu_model,
+            physical_cores=self.physical_cores,
             cpu_freq=float(freq.current if freq else 0.0),
+            cpu_freq_max=float(freq.max if freq else 0.0),
             temperature=self._read_temperature(now),
             memory=memory,
+            memory_hardware=self.memory_hardware,
+            memory_model=self.memory_model,
             swap=swap,
             disk=disk,
             disk_read_rate=disk_read,
@@ -557,6 +663,8 @@ class MiltopApp:
         self.last_sample = time.monotonic()
         self.sort_mode = "cpu"
         self.process_mode = False
+        self.cores_mode = False
+        self.core_page = 0
         self.process_index = 0
         self.process_offset = 0
         self.confirm_process: ProcessRow | None = None
@@ -634,16 +742,14 @@ class MiltopApp:
         s = self.snapshot
         h = self.sampler.histories
         if component == "cpu":
-            detail = self.t("threads", count=len(s.per_cpu))
-            if s.cpu_freq:
-                detail += f" • {s.cpu_freq / 1000:.2f} GHz"
-            if s.temperature is not None:
-                detail += f" • {s.temperature:.0f}°C"
+            detail = s.cpu_model or self.t("logical_cpu", count=len(s.per_cpu))
             return self.t("processor"), f"{s.cpu:.0f}%", detail, list(h["cpu"]), 100.0
         if component == "gpu":
             return s.gpu_name or "GPU", f"{s.gpu_usage or 0:.0f}%", self.t("gpu_usage"), list(h["gpu"]), 100.0
         if component == "memory":
-            return self.t("memory"), f"{s.memory.percent:.0f}%", self.t("used_of", used=human_bytes(s.memory.used), total=human_bytes(s.memory.total)), list(h["memory"]), 100.0
+            hardware = s.memory_hardware or self.t("memory_hardware_unknown")
+            detail = f"{hardware} • {human_bytes(s.memory.used)} / {human_bytes(s.memory.total)}"
+            return self.t("memory"), f"{s.memory.percent:.0f}%", detail, list(h["memory"]), 100.0
         if component == "disk":
             return self.t("disk"), f"{s.disk.percent:.0f}%", f"R {human_rate(s.disk_read_rate)}  W {human_rate(s.disk_write_rate)}", list(h["disk"]), 100.0
         if component == "network":
@@ -661,6 +767,8 @@ class MiltopApp:
         self.line(height - 2, 0, width, "─", self.attr(Theme.BORDER))
         if self.confirm_process is not None:
             help_text = self.t("footer_confirm")
+        elif self.cores_mode:
+            help_text = self.t("footer_cores")
         elif self.process_mode:
             help_text = self.t("footer_process")
         else:
@@ -810,7 +918,11 @@ class MiltopApp:
     def draw_cpu(self, y: int, x: int, height: int, width: int) -> None:
         s = self.snapshot
         temp = f" • {s.temperature:.0f}°C" if s.temperature is not None else ""
-        subtitle = f"{self.t('logical_cpu', count=len(s.per_cpu))} • {s.cpu_freq / 1000:.2f} GHz{temp} • {self.t('load')} {s.load[0]:.2f}"
+        topology = self.t("cpu_topology", cores=s.physical_cores or len(s.per_cpu), threads=len(s.per_cpu))
+        frequency = f"{s.cpu_freq / 1000:.2f} GHz"
+        if s.cpu_freq_max:
+            frequency += f" / {s.cpu_freq_max / 1000:.2f} GHz max"
+        subtitle = f"{s.cpu_model} • {topology} • {frequency}{temp} • {self.t('load')} {s.load[0]:.2f}"
         self.draw_detail_header(y, x, width, self.t("processor").upper(), f"{s.cpu:.0f}%", subtitle)
         graph_h = max(5, min(11, height // 3))
         self.draw_chart(y + 4, x, graph_h, width, list(self.sampler.histories["cpu"]), ceiling=100.0)
@@ -818,6 +930,55 @@ class MiltopApp:
         self.add(y + 4 + graph_h, x, self.t("last_samples"), self.attr(Theme.MUTED))
         table_y = y + graph_h + 6
         self.draw_process_table(table_y, x, max(0, height - graph_h - 6), width)
+
+    def draw_cores(self, y: int, x: int, height: int, width: int) -> None:
+        """Draw a responsive, paginated grid with one tile per logical CPU."""
+        self.box(y, x, height, width, self.attr(Theme.BORDER))
+        values = self.snapshot.per_cpu
+        inner_x = x + 2
+        inner_width = max(1, width - 4)
+        self.add(y + 1, inner_x, self.t("cpu_cores"), self.attr(Theme.TEXT, curses.A_BOLD), inner_width)
+
+        temp = f" • {self.snapshot.temperature:.0f}°C" if self.snapshot.temperature is not None else ""
+        summary = f"{self.t('logical_cpu', count=len(values))} • {self.snapshot.cpu:.0f}%{temp}"
+        core_description = f"{self.snapshot.cpu_model} • {self.t('cores_hint')}"
+        self.add(y + 2, inner_x, ellipsize(core_description, max(1, inner_width - len(summary) - 3)), self.attr(Theme.MUTED))
+        self.add(y + 2, max(inner_x, x + width - len(summary) - 2), summary, self.attr(Theme.ACCENT, curses.A_BOLD))
+
+        if not values:
+            return
+
+        grid_y = y + 4
+        card_height = 4
+        gap = 2
+        columns = max(1, min(len(values), (inner_width + gap) // (20 + gap)))
+        card_width = max(12, (inner_width - gap * (columns - 1)) // columns)
+        rows = max(1, (height - 5) // card_height)
+        page_size = max(1, rows * columns)
+        page_count = max(1, math.ceil(len(values) / page_size))
+        self.core_page = int(clamp(self.core_page, 0, page_count - 1))
+        start = self.core_page * page_size
+
+        if page_count > 1:
+            page_text = self.t("page", current=self.core_page + 1, total=page_count)
+            self.add(y + 1, x + width - len(page_text) - 2, page_text, self.attr(Theme.MUTED))
+
+        for position, core_index in enumerate(range(start, min(len(values), start + page_size))):
+            row, column = divmod(position, columns)
+            card_y = grid_y + row * card_height
+            card_x = inner_x + column * (card_width + gap)
+            if card_y + card_height > y + height:
+                break
+            value = values[core_index]
+            color = self.metric_color(value)
+            self.box(card_y, card_x, card_height, card_width, self.attr(Theme.BORDER))
+            label = f"CPU {core_index + 1}"
+            percentage = f"{value:.0f}%"
+            self.add(card_y + 1, card_x + 2, label, self.attr(Theme.TEXT, curses.A_BOLD), max(1, card_width - 4))
+            self.add(card_y + 1, card_x + card_width - len(percentage) - 2, percentage, self.attr(color, curses.A_BOLD))
+            history_width = max(1, card_width - 4)
+            history = list(self.sampler.core_histories[core_index]) if core_index < len(self.sampler.core_histories) else [value]
+            self.add(card_y + 2, card_x + 2, sparkline(history, history_width, 100.0), self.attr(color), history_width)
 
     def draw_gpu(self, y: int, x: int, height: int, width: int) -> None:
         s = self.snapshot
@@ -830,11 +991,16 @@ class MiltopApp:
 
     def draw_memory(self, y: int, x: int, height: int, width: int) -> None:
         s = self.snapshot
-        subtitle = self.t("used_available_total", used=human_bytes(s.memory.used), available=human_bytes(s.memory.available), total=human_bytes(s.memory.total))
+        hardware = s.memory_hardware or self.t("memory_hardware_unknown")
+        subtitle = f"{hardware} • {self.t('used_available_total', used=human_bytes(s.memory.used), available=human_bytes(s.memory.available), total=human_bytes(s.memory.total))}"
         self.draw_detail_header(y, x, width, self.t("memory").upper(), f"{s.memory.percent:.0f}%", subtitle)
+        extra_lines = 1 if s.memory_model else 0
+        if s.memory_model:
+            self.add(y + 3, x, ellipsize(s.memory_model, width), self.attr(Theme.MUTED), width)
         graph_h = max(5, min(10, height // 3))
-        self.draw_chart(y + 4, x, graph_h, width, list(self.sampler.histories["memory"]), ceiling=100.0, primary_color=Theme.SECONDARY)
-        details_y = y + graph_h + 5
+        graph_y = y + 4 + extra_lines
+        self.draw_chart(graph_y, x, graph_h, width, list(self.sampler.histories["memory"]), ceiling=100.0, primary_color=Theme.SECONDARY)
+        details_y = graph_y + graph_h + 1
         self.add(details_y, x, f"RAM  {human_bytes(s.memory.used)} / {human_bytes(s.memory.total)}", self.attr(Theme.TEXT))
         self.draw_percent_bar(details_y + 1, x, width, s.memory.percent, Theme.SECONDARY)
         if s.swap.total:
@@ -985,10 +1151,13 @@ class MiltopApp:
         self.draw_footer(height, width)
         body_y = 3
         body_h = height - 6
-        sidebar_w = int(clamp(width * 0.27, 25, 34))
-        self.draw_sidebar(body_y, 1, body_h, sidebar_w)
-        main_x = sidebar_w + 3
-        self.draw_main(body_y, main_x, body_h, width - main_x - 1)
+        if self.cores_mode:
+            self.draw_cores(body_y, 1, body_h, width - 2)
+        else:
+            sidebar_w = int(clamp(width * 0.27, 25, 34))
+            self.draw_sidebar(body_y, 1, body_h, sidebar_w)
+            main_x = sidebar_w + 3
+            self.draw_main(body_y, main_x, body_h, width - main_x - 1)
         if self.confirm_process is not None:
             self.draw_confirmation(height, width)
         self.screen.refresh()
@@ -1025,6 +1194,26 @@ class MiltopApp:
                 self.confirm_process = None
             return
 
+        if key in (ord("r"), ord("R")):
+            self.cores_mode = not self.cores_mode
+            self.core_page = 0
+            self.process_mode = False
+            return
+
+        if self.cores_mode:
+            if key in (ord("q"), ord("Q")):
+                self.running = False
+            elif key == 27:
+                self.cores_mode = False
+            elif key in (curses.KEY_LEFT, curses.KEY_UP, curses.KEY_PPAGE):
+                self.core_page = max(0, self.core_page - 1)
+            elif key in (curses.KEY_RIGHT, curses.KEY_DOWN, curses.KEY_NPAGE):
+                self.core_page += 1
+            elif key in (ord("l"), ord("L")):
+                self.language = choose_language(self.screen, self.color, self.language)
+                self._configure_terminal()
+            return
+
         if self.process_mode:
             rows = self.sorted_processes()
             if key in (ord("q"), ord("Q")):
@@ -1048,10 +1237,6 @@ class MiltopApp:
                 if proc is not None:
                     self.confirm_process = proc
                     self.confirm_choice = 0
-            elif key in (ord("r"), ord("R")):
-                self.sampler.last_process_sample = 0.0
-                self.snapshot = self.sampler.sample()
-                self.last_sample = time.monotonic()
             return
 
         if key in (ord("q"), ord("Q"), 27):
@@ -1077,9 +1262,6 @@ class MiltopApp:
             self.interval = max(0.25, self.interval - 0.25)
         elif key in (ord("-"), ord("_")):
             self.interval = min(5.0, self.interval + 0.25)
-        elif key in (ord("r"), ord("R")):
-            self.snapshot = self.sampler.sample()
-            self.last_sample = time.monotonic()
         elif key == curses.KEY_MOUSE:
             self.handle_mouse()
 

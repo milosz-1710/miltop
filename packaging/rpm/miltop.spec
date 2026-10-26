@@ -11,6 +11,7 @@ Source3:        CHANGELOG.md
 BuildArch:      noarch
 Requires:       python3 >= 3.10
 Requires:       python3-psutil
+Recommends:     inxi
 
 %description
 miltop displays CPU, memory, disk, network and process information in a clean,
@@ -37,5 +38,8 @@ python3 -m py_compile %{SOURCE0}
 %doc %{_docdir}/%{name}/CHANGELOG.md
 
 %changelog
+* Mon Oct 26 2026 Miłosz <79249752+milosz-1710@users.noreply.github.com> - 1.2.0-1
+- Add responsive per-core CPU load view
+
 * Mon Oct 26 2026 Miłosz <79249752+milosz-1710@users.noreply.github.com> - 1.1.0-1
 - Initial public package

@@ -16,8 +16,8 @@ Ready-to-install Linux packages are available on the
 
 | Distribution | Download | Install |
 | --- | --- | --- |
-| Debian, Ubuntu, Linux Mint | **[Download `.deb`](https://github.com/milosz-1710/miltop/releases/download/v1.1.0/miltop_1.1.0_all.deb)** | `sudo apt install ./miltop_1.1.0_all.deb` |
-| Fedora | **[Download `.rpm`](https://github.com/milosz-1710/miltop/releases/download/v1.1.0/miltop-1.1.0-1.noarch.rpm)** | `sudo dnf install ./miltop-1.1.0-1.noarch.rpm` |
+| Debian, Ubuntu, Linux Mint | **[Download `.deb`](https://github.com/milosz-1710/miltop/releases/download/v1.2.0/miltop_1.2.0_all.deb)** | `sudo apt install ./miltop_1.2.0_all.deb` |
+| Fedora | **[Download `.rpm`](https://github.com/milosz-1710/miltop/releases/download/v1.2.0/miltop-1.2.0-1.noarch.rpm)** | `sudo dnf install ./miltop-1.2.0-1.noarch.rpm` |
 
 The packages are architecture-independent: Debian marks this as `all`, while
 RPM uses `noarch`.
@@ -26,6 +26,10 @@ RPM uses `noarch`.
 
 - tile-based overview of CPU, memory, disk, network and processes;
 - live graphs without a permanently busy redraw loop;
+- responsive per-core CPU view available with `R`;
+- processor model, physical-core/thread topology and current/max frequency;
+- RAM generation, speed, module layout, manufacturer and part number when
+  reported by `inxi` without administrator privileges;
 - interactive process list with CPU/RAM sorting;
 - safe process termination: Backspace opens a confirmation and sends SIGTERM;
 - English and Polish interface with a first-run language selector;
@@ -38,6 +42,7 @@ RPM uses `noarch`.
 - Linux;
 - Python 3.10 or newer;
 - `psutil`;
+- `inxi` (optional, enables detailed RAM hardware identification);
 - a terminal supporting at least 72×20 characters.
 
 ## Installation
@@ -47,7 +52,7 @@ RPM uses `noarch`.
 Download the `.deb` file from the latest GitHub release and install it with:
 
 ```bash
-sudo apt install ./miltop_1.1.0_all.deb
+sudo apt install ./miltop_1.2.0_all.deb
 ```
 
 ### Fedora
@@ -56,7 +61,7 @@ Download the `.rpm` file from the latest GitHub release and install it through
 DNF:
 
 ```bash
-sudo dnf install ./miltop-1.1.0-1.noarch.rpm
+sudo dnf install ./miltop-1.2.0-1.noarch.rpm
 ```
 
 ### From source
@@ -94,10 +99,10 @@ miltop --no-color
 | Mouse click | Select a tile |
 | `Enter` on Processes | Open the interactive process list |
 | `Backspace` | Ask before ending the selected process |
+| `R` | Open/close the live processor-core view |
 | `S` | Sort processes by CPU/RAM |
 | `L` | Change language |
 | `+` / `-` | Increase/decrease refresh frequency |
-| `R` | Refresh immediately |
 | `Esc` | Return to the dashboard |
 | `Q`, `Ctrl+C` | Quit |
 

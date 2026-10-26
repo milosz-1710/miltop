@@ -32,6 +32,7 @@ Priority: optional
 Architecture: all
 Maintainer: Miłosz <79249752+milosz-1710@users.noreply.github.com>
 Depends: python3 (>= 3.10), python3-psutil
+Recommends: inxi
 Homepage: https://github.com/milosz-1710/miltop
 Description: lightweight tile-based terminal system monitor
  miltop displays CPU, memory, disk, network and process information in a
