@@ -9,6 +9,19 @@ in English and Polish.
 
 ![miltop dashboard](docs/screenshots/dashboard.jpg)
 
+## Download packages
+
+Ready-to-install Linux packages are available on the
+**[GitHub Releases page](https://github.com/milosz-1710/miltop/releases/latest)**.
+
+| Distribution | Download | Install |
+| --- | --- | --- |
+| Debian, Ubuntu, Linux Mint | **[Download `.deb`](https://github.com/milosz-1710/miltop/releases/download/v1.1.0/miltop_1.1.0_all.deb)** | `sudo apt install ./miltop_1.1.0_all.deb` |
+| Fedora | **[Download `.rpm`](https://github.com/milosz-1710/miltop/releases/download/v1.1.0/miltop-1.1.0-1.noarch.rpm)** | `sudo dnf install ./miltop-1.1.0-1.noarch.rpm` |
+
+The packages are architecture-independent: Debian marks this as `all`, while
+RPM uses `noarch`.
+
 ## Highlights
 
 - tile-based overview of CPU, memory, disk, network and processes;
