@@ -72,7 +72,14 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ steps.version.outputs.number }}
         run: |
-          gh release create "v${VERSION}" \
-            --title "miltop ${VERSION}" \
-            --generate-notes \
-            dist/*.deb dist/*.rpm dist/*.whl dist/*.tar.gz
+          tag="v${VERSION}"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release upload "$tag" \
+              --clobber \
+              dist/*.deb dist/*.rpm dist/*.whl dist/*.tar.gz
+          else
+            gh release create "$tag" \
+              --title "miltop ${VERSION}" \
+              --generate-notes \
+              dist/*.deb dist/*.rpm dist/*.whl dist/*.tar.gz
+          fi
