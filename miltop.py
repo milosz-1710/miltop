@@ -10,6 +10,7 @@ import locale
 import math
 import os
 import re
+import shlex
 import signal
 import subprocess
 import sys
@@ -23,9 +24,10 @@ from typing import Any
 import psutil
 
 
-VERSION = "1.2.0"
+VERSION = "1.3.0"
 BLOCKS = " ▁▂▃▄▅▆▇█"
 CONFIG_FILE = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config")) / "miltop" / "config.json"
+THEME_NAMES = ("cyan", "green", "red", "blue", "purple", "amber")
 LOGO = (
     "███╗   ███╗██╗██╗  ████████╗ ██████╗ ██████╗ ",
     "████╗ ████║██║██║  ╚══██╔══╝██╔═══██╗██╔══██╗",
@@ -47,15 +49,21 @@ TEXTS: dict[str, dict[str, str]] = {
         "cpu_topology": "{cores} rdzenie • {threads} wątków",
         "load": "obciążenie",
         "gpu_usage": "Użycie układu graficznego",
+        "graphics": "Grafika",
+        "integrated_gpu": "Zintegrowana",
+        "dedicated_gpu": "Dedykowana",
+        "unknown_gpu": "Typ nierozpoznany",
+        "detected_gpus": "Wykryte układy graficzne",
+        "usage_unavailable": "użycie niedostępne",
         "memory": "Pamięć",
         "used_of": "{used} z {total}",
         "disk": "Dysk",
         "network": "Sieć",
         "processes": "Procesy",
-        "footer": "↑↓ wybór   Enter otwórz   R rdzenie   L język   Q wyjście",
-        "footer_process": "↑↓ proces   S CPU/RAM   Backspace zakończ   Esc wróć   Q wyjście",
+        "footer": "↑↓ wybór   Enter otwórz   R rdzenie   C kolory   L język   Q wyjście",
+        "footer_process": "↑↓ proces   S CPU/RAM   Backspace zakończ   C kolory   Esc wróć   Q wyjście",
         "footer_confirm": "←→ wybór   Enter zatwierdź   Esc anuluj",
-        "footer_cores": "R/Esc wróć   PgUp/PgDn strona   L język   Q wyjście",
+        "footer_cores": "R/Esc wróć   PgUp/PgDn strona   C kolory   L język   Q wyjście",
         "cpu_cores": "RDZENIE PROCESORA",
         "cores_hint": "Bieżące obciążenie i ostatnie pomiary każdego logicznego CPU",
         "memory_hardware_unknown": "Typ RAM niewykryty (opcjonalnie zainstaluj inxi)",
@@ -87,6 +95,15 @@ TEXTS: dict[str, dict[str, str]] = {
         "kill_gone": "Proces {pid} już nie działa",
         "kill_protected": "Tego procesu miltop nie może zakończyć",
         "process_mode_hint": "Tryb procesów — wybierz pozycję i użyj Backspace",
+        "colors": "Kolory",
+        "color_settings": "KOLORY INTERFEJSU",
+        "color_hint": "←→/↑↓ wybór   Enter zapisz   Esc anuluj",
+        "theme_cyan": "Turkusowy",
+        "theme_green": "Zielony",
+        "theme_red": "Czerwony",
+        "theme_blue": "Niebieski",
+        "theme_purple": "Fioletowy",
+        "theme_amber": "Bursztynowy",
     },
     "en": {
         "system_manager": "System manager",
@@ -99,15 +116,21 @@ TEXTS: dict[str, dict[str, str]] = {
         "cpu_topology": "{cores} cores • {threads} threads",
         "load": "load",
         "gpu_usage": "Graphics processor usage",
+        "graphics": "Graphics",
+        "integrated_gpu": "Integrated",
+        "dedicated_gpu": "Dedicated",
+        "unknown_gpu": "Unknown type",
+        "detected_gpus": "Detected graphics adapters",
+        "usage_unavailable": "usage unavailable",
         "memory": "Memory",
         "used_of": "{used} of {total}",
         "disk": "Disk",
         "network": "Network",
         "processes": "Processes",
-        "footer": "↑↓ select   Enter open   R cores   L language   Q quit",
-        "footer_process": "↑↓ process   S CPU/RAM   Backspace end   Esc back   Q quit",
+        "footer": "↑↓ select   Enter open   R cores   C colors   L language   Q quit",
+        "footer_process": "↑↓ process   S CPU/RAM   Backspace end   C colors   Esc back   Q quit",
         "footer_confirm": "←→ select   Enter confirm   Esc cancel",
-        "footer_cores": "R/Esc back   PgUp/PgDn page   L language   Q quit",
+        "footer_cores": "R/Esc back   PgUp/PgDn page   C colors   L language   Q quit",
         "cpu_cores": "PROCESSOR CORES",
         "cores_hint": "Current load and recent activity for every logical CPU",
         "memory_hardware_unknown": "RAM type not detected (optionally install inxi)",
@@ -139,6 +162,15 @@ TEXTS: dict[str, dict[str, str]] = {
         "kill_gone": "Process {pid} is no longer running",
         "kill_protected": "miltop cannot end this process",
         "process_mode_hint": "Process mode — select an item and press Backspace",
+        "colors": "Colors",
+        "color_settings": "INTERFACE COLORS",
+        "color_hint": "←→/↑↓ select   Enter save   Esc cancel",
+        "theme_cyan": "Cyan",
+        "theme_green": "Green",
+        "theme_red": "Red",
+        "theme_blue": "Blue",
+        "theme_purple": "Purple",
+        "theme_amber": "Amber",
     },
 }
 
@@ -148,19 +180,40 @@ def text(language: str, key: str, **values: Any) -> str:
     return template.format(**values)
 
 
-def load_language() -> str | None:
+def load_config() -> dict[str, Any]:
     try:
-        language = json.loads(CONFIG_FILE.read_text(encoding="utf-8")).get("language")
-        return language if language in TEXTS else None
+        config = json.loads(CONFIG_FILE.read_text(encoding="utf-8"))
+        return config if isinstance(config, dict) else {}
     except (OSError, ValueError, TypeError, AttributeError):
-        return None
+        return {}
+
+
+def save_config(**values: Any) -> None:
+    config = load_config()
+    config.update(values)
+    CONFIG_FILE.parent.mkdir(parents=True, exist_ok=True)
+    temporary = CONFIG_FILE.with_suffix(".tmp")
+    temporary.write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
+    temporary.replace(CONFIG_FILE)
+
+
+def load_language() -> str | None:
+    language = load_config().get("language")
+    return language if language in TEXTS else None
 
 
 def save_language(language: str) -> None:
-    CONFIG_FILE.parent.mkdir(parents=True, exist_ok=True)
-    temporary = CONFIG_FILE.with_suffix(".tmp")
-    temporary.write_text(json.dumps({"language": language}, indent=2) + "\n", encoding="utf-8")
-    temporary.replace(CONFIG_FILE)
+    save_config(language=language)
+
+
+def load_theme() -> str:
+    theme = load_config().get("theme")
+    return theme if theme in THEME_NAMES else "cyan"
+
+
+def save_theme(theme: str) -> None:
+    if theme in THEME_NAMES:
+        save_config(theme=theme)
 
 
 def clamp(value: float, low: float, high: float) -> float:
@@ -235,6 +288,22 @@ class ProcessRow:
 
 
 @dataclass
+class GpuDevice:
+    card: str
+    pci_address: str
+    vendor: str
+    model: str
+    kind: str
+    usage_path: Path | None = field(default=None, repr=False)
+    usage: float | None = None
+
+    @property
+    def name(self) -> str:
+        values = [value for value in (self.vendor, self.model) if value]
+        return " ".join(values) or self.card.upper()
+
+
+@dataclass
 class Snapshot:
     timestamp: float = 0.0
     cpu: float = 0.0
@@ -261,6 +330,7 @@ class Snapshot:
     processes: list[ProcessRow] = field(default_factory=list)
     gpu_name: str = ""
     gpu_usage: float | None = None
+    gpus: list[GpuDevice] = field(default_factory=list)
 
 
 class Sampler:
@@ -295,7 +365,7 @@ class Sampler:
         self.memory_hardware = ""
         self.memory_model = ""
         threading.Thread(target=self._load_memory_hardware, name="miltop-hardware", daemon=True).start()
-        self.gpu_path, self.gpu_name = self._find_gpu()
+        self.gpus = self._find_gpus()
         psutil.cpu_percent(interval=None, percpu=True)
 
     def _load_memory_hardware(self) -> None:
@@ -368,28 +438,112 @@ class Sampler:
         return " • ".join(hardware), " / ".join(models)
 
     @staticmethod
-    def _find_gpu() -> tuple[Path | None, str]:
-        for card in sorted(Path("/sys/class/drm").glob("card[0-9]*")):
-            busy = card / "device" / "gpu_busy_percent"
-            if not busy.exists():
-                continue
-            name = card.name.upper()
-            vendor_file = card / "device" / "vendor"
-            try:
-                vendor = vendor_file.read_text().strip().lower()
-                name = {"0x1002": "AMD GPU", "0x8086": "Intel GPU", "0x10de": "NVIDIA GPU"}.get(vendor, name)
-            except OSError:
-                pass
-            return busy, name
-        return None, ""
-
-    def _read_gpu(self) -> float | None:
-        if self.gpu_path is None:
-            return None
+    def _pci_gpu_names() -> dict[str, tuple[str, str]]:
+        """Return PCI address -> (vendor, model) without administrator access."""
         try:
-            return clamp(float(self.gpu_path.read_text().strip()), 0.0, 100.0)
-        except (OSError, ValueError):
-            return None
+            result = subprocess.run(
+                ["lspci", "-Dmmnn"], capture_output=True, text=True,
+                timeout=2, check=False,
+            )
+        except (OSError, subprocess.SubprocessError):
+            return {}
+        if result.returncode != 0:
+            return {}
+
+        devices: dict[str, tuple[str, str]] = {}
+        for line in result.stdout.splitlines():
+            try:
+                fields = shlex.split(line)
+            except ValueError:
+                continue
+            if len(fields) < 4 or not re.search(r"(?:VGA|3D|Display)", fields[1], re.IGNORECASE):
+                continue
+            clean = lambda value: re.sub(r"\s*\[[0-9a-fA-F]{4}\]$", "", value).strip()
+            devices[fields[0]] = (clean(fields[2]), clean(fields[3]))
+        return devices
+
+    @staticmethod
+    def _gpu_kind(vendor_id: str, model: str, pci_address: str, vram_bytes: int) -> str:
+        """Best-effort integrated/dedicated classification from stable hardware facts."""
+        model_lower = model.lower()
+        if vendor_id == "0x10de":
+            return "dedicated"
+        if vendor_id == "0x8086":
+            if "arc" in model_lower and not pci_address.endswith("00:02.0"):
+                return "dedicated"
+            return "integrated"
+        if vendor_id == "0x1002":
+            integrated_markers = ("radeon graphics", "vega", "apu", "ryzen")
+            if any(marker in model_lower for marker in integrated_markers):
+                return "integrated"
+            if vram_bytes >= 1024 ** 3:
+                return "dedicated"
+        if vram_bytes >= 1024 ** 3:
+            return "dedicated"
+        return "unknown"
+
+    @classmethod
+    def _find_gpus(cls, drm_root: Path = Path("/sys/class/drm")) -> list[GpuDevice]:
+        pci_names = cls._pci_gpu_names()
+        vendor_names = {
+            "0x1002": "AMD",
+            "0x8086": "Intel",
+            "0x10de": "NVIDIA",
+            "0x1a03": "ASPEED",
+        }
+        devices: list[GpuDevice] = []
+        try:
+            cards = sorted(
+                (path for path in drm_root.iterdir() if re.fullmatch(r"card\d+", path.name)),
+                key=lambda path: int(path.name[4:]),
+            )
+        except OSError:
+            return []
+
+        for card in cards:
+            device_dir = card / "device"
+            try:
+                resolved = device_dir.resolve(strict=True)
+            except OSError:
+                continue
+            pci_address = resolved.name
+
+            def read_value(name: str, default: str = "") -> str:
+                try:
+                    return (device_dir / name).read_text().strip().lower()
+                except OSError:
+                    return default
+
+            vendor_id = read_value("vendor")
+            device_id = read_value("device")
+            try:
+                vram_bytes = int(read_value("mem_info_vram_total", "0"), 0)
+            except ValueError:
+                vram_bytes = 0
+            pci_vendor, pci_model = pci_names.get(pci_address, ("", ""))
+            vendor = pci_vendor or vendor_names.get(vendor_id, vendor_id or "GPU")
+            model = pci_model or (f"Device {device_id}" if device_id else card.name.upper())
+            usage_path = device_dir / "gpu_busy_percent"
+            devices.append(GpuDevice(
+                card=card.name,
+                pci_address=pci_address,
+                vendor=vendor,
+                model=model,
+                kind=cls._gpu_kind(vendor_id, model, pci_address, vram_bytes),
+                usage_path=usage_path if usage_path.is_file() else None,
+            ))
+        return devices
+
+    def _read_gpus(self) -> list[GpuDevice]:
+        for gpu in self.gpus:
+            gpu.usage = None
+            if gpu.usage_path is None:
+                continue
+            try:
+                gpu.usage = clamp(float(gpu.usage_path.read_text().strip()), 0.0, 100.0)
+            except (OSError, ValueError):
+                pass
+        return self.gpus
 
     def _read_temperature(self, now: float) -> float | None:
         if now - self.temperature_checked < 4.0:
@@ -478,7 +632,10 @@ class Sampler:
         process_count = self.cached_process_count
         thread_count = self.cached_thread_count
         freq = psutil.cpu_freq()
-        gpu = self._read_gpu()
+        gpus = self._read_gpus()
+        gpu_values = [device.usage for device in gpus if device.usage is not None]
+        gpu = max(gpu_values) if gpu_values else None
+        primary_gpu = gpus[0] if gpus else None
 
         snap = Snapshot(
             timestamp=time.time(),
@@ -504,8 +661,9 @@ class Sampler:
             load=os.getloadavg(),
             uptime=time.time() - psutil.boot_time(),
             processes=processes,
-            gpu_name=self.gpu_name,
+            gpu_name=primary_gpu.name if primary_gpu else "",
             gpu_usage=gpu,
+            gpus=gpus,
         )
 
         values = {
@@ -535,44 +693,70 @@ class Theme:
     BORDER = 8
     SECONDARY = 9
 
+    SWATCH = 20
+    PALETTES = {
+        "cyan": (81, 24, 177),
+        "green": (114, 22, 81),
+        "red": (203, 52, 221),
+        "blue": (75, 25, 81),
+        "purple": (177, 54, 81),
+        "amber": (221, 58, 203),
+    }
+    BASIC = {
+        "cyan": curses.COLOR_CYAN,
+        "green": curses.COLOR_GREEN,
+        "red": curses.COLOR_RED,
+        "blue": curses.COLOR_BLUE,
+        "purple": curses.COLOR_MAGENTA,
+        "amber": curses.COLOR_YELLOW,
+    }
+
     @staticmethod
-    def init(enabled: bool) -> None:
+    def init(enabled: bool, theme: str = "cyan") -> None:
         if not enabled or not curses.has_colors():
             return
         curses.start_color()
         curses.use_default_colors()
+        accent, selected_bg, secondary = Theme.PALETTES.get(theme, Theme.PALETTES["cyan"])
         if curses.COLORS >= 256:
             definitions = {
                 Theme.TEXT: (252, -1),
                 Theme.MUTED: (244, -1),
-                Theme.ACCENT: (81, -1),
-                Theme.SELECTED: (255, 24),
+                Theme.ACCENT: (accent, -1),
+                Theme.SELECTED: (255, selected_bg),
                 Theme.GOOD: (114, -1),
                 Theme.WARN: (221, -1),
                 Theme.BAD: (203, -1),
                 Theme.BORDER: (240, -1),
-                Theme.SECONDARY: (177, -1),
+                Theme.SECONDARY: (secondary, -1),
             }
         else:
+            basic = Theme.BASIC.get(theme, curses.COLOR_CYAN)
             definitions = {
                 Theme.TEXT: (curses.COLOR_WHITE, -1),
                 Theme.MUTED: (curses.COLOR_WHITE, -1),
-                Theme.ACCENT: (curses.COLOR_CYAN, -1),
-                Theme.SELECTED: (curses.COLOR_BLACK, curses.COLOR_CYAN),
+                Theme.ACCENT: (basic, -1),
+                Theme.SELECTED: (curses.COLOR_BLACK, basic),
                 Theme.GOOD: (curses.COLOR_GREEN, -1),
                 Theme.WARN: (curses.COLOR_YELLOW, -1),
                 Theme.BAD: (curses.COLOR_RED, -1),
                 Theme.BORDER: (curses.COLOR_WHITE, -1),
-                Theme.SECONDARY: (curses.COLOR_MAGENTA, -1),
+                Theme.SECONDARY: (basic, -1),
             }
         for pair, (fg, bg) in definitions.items():
             try:
                 curses.init_pair(pair, fg, bg)
             except curses.error:
                 pass
+        for index, name in enumerate(THEME_NAMES):
+            color = Theme.PALETTES[name][0] if curses.COLORS >= 256 else Theme.BASIC[name]
+            try:
+                curses.init_pair(Theme.SWATCH + index, color, -1)
+            except curses.error:
+                pass
 
 
-def choose_language(screen: Any, color: bool, current: str = "pl") -> str:
+def choose_language(screen: Any, color: bool, current: str = "pl", theme: str = "cyan") -> str:
     """Show the first-run language screen and persist the selection."""
     options = [("pl", "Polski"), ("en", "English")]
     selected = next((index for index, item in enumerate(options) if item[0] == current), 0)
@@ -581,7 +765,7 @@ def choose_language(screen: Any, color: bool, current: str = "pl") -> str:
     curses.cbreak()
     screen.keypad(True)
     screen.timeout(-1)
-    Theme.init(color)
+    Theme.init(color, theme)
 
     while True:
         screen.erase()
@@ -650,8 +834,68 @@ def choose_language(screen: Any, color: bool, current: str = "pl") -> str:
             return "en"
 
 
+def choose_theme(screen: Any, color: bool, language: str, current: str) -> str:
+    """Full-screen, keyboard-friendly palette chooser with color swatches."""
+    selected = THEME_NAMES.index(current) if current in THEME_NAMES else 0
+    original = current if current in THEME_NAMES else "cyan"
+    screen.timeout(-1)
+
+    while True:
+        Theme.init(color, THEME_NAMES[selected])
+        screen.erase()
+        height, width = screen.getmaxyx()
+        title = text(language, "color_settings")
+        screen.addnstr(2, max(1, (width - len(title)) // 2), title, max(1, width - 2), curses.color_pair(Theme.ACCENT) | curses.A_BOLD)
+        subtitle = "miltop  •  " + text(language, "colors")
+        screen.addnstr(4, max(1, (width - len(subtitle)) // 2), subtitle, max(1, width - 2), curses.color_pair(Theme.MUTED))
+
+        columns = 2 if width >= 62 else 1
+        card_width = min(28, max(20, (width - 8) // columns))
+        start_x = max(1, (width - (card_width * columns + 3 * (columns - 1))) // 2)
+        start_y = 7
+        for index, name in enumerate(THEME_NAMES):
+            row, column = divmod(index, columns)
+            y = start_y + row * 3
+            x = start_x + column * (card_width + 3)
+            label = text(language, "theme_" + name)
+            marker = "●  ■"
+            active = index == selected
+            attr = curses.color_pair(Theme.SELECTED) | curses.A_BOLD if active else curses.color_pair(Theme.BORDER)
+            swatch = curses.color_pair(Theme.SWATCH + index) | curses.A_BOLD
+            try:
+                screen.addnstr(y, x, " " * card_width, card_width, attr)
+                screen.addnstr(y, x + 2, marker, 4, attr if active else swatch)
+                screen.addnstr(y, x + 8, label, max(1, card_width - 10), attr)
+            except curses.error:
+                pass
+
+        hint = text(language, "color_hint")
+        try:
+            screen.addnstr(min(height - 2, start_y + 10), max(1, (width - len(hint)) // 2), hint, max(1, width - 2), curses.color_pair(Theme.MUTED))
+        except curses.error:
+            pass
+        screen.refresh()
+
+        key = screen.getch()
+        if key in (curses.KEY_LEFT, ord("h"), ord("H")):
+            selected = (selected - 1) % len(THEME_NAMES)
+        elif key in (curses.KEY_RIGHT, ord("l")):
+            selected = (selected + 1) % len(THEME_NAMES)
+        elif key in (curses.KEY_UP, ord("k"), ord("K")):
+            selected = (selected - columns) % len(THEME_NAMES)
+        elif key in (curses.KEY_DOWN, ord("j"), ord("J")):
+            selected = (selected + columns) % len(THEME_NAMES)
+        elif key in (10, 13, curses.KEY_ENTER):
+            chosen = THEME_NAMES[selected]
+            save_theme(chosen)
+            return chosen
+        elif key == 27:
+            Theme.init(color, original)
+            return original
+
+
 class MiltopApp:
-    def __init__(self, screen: Any, interval: float, color: bool = True, language: str = "pl") -> None:
+    def __init__(self, screen: Any, interval: float, color: bool = True, language: str = "pl", theme: str = "cyan") -> None:
         self.screen = screen
         self.interval = clamp(interval, 0.25, 5.0)
         self.sampler = Sampler()
@@ -660,6 +904,7 @@ class MiltopApp:
         self.running = True
         self.color = color
         self.language = language if language in TEXTS else "pl"
+        self.theme = theme if theme in THEME_NAMES else "cyan"
         self.last_sample = time.monotonic()
         self.sort_mode = "cpu"
         self.process_mode = False
@@ -684,7 +929,7 @@ class MiltopApp:
         curses.cbreak()
         self.screen.keypad(True)
         self.screen.timeout(100)
-        Theme.init(self.color)
+        Theme.init(self.color, self.theme)
         try:
             curses.mousemask(curses.ALL_MOUSE_EVENTS | curses.REPORT_MOUSE_POSITION)
         except curses.error:
@@ -693,7 +938,7 @@ class MiltopApp:
     @property
     def components(self) -> list[str]:
         items = ["cpu", "memory", "disk", "network", "processes"]
-        if self.snapshot.gpu_usage is not None:
+        if self.snapshot.gpus:
             items.insert(1, "gpu")
         return items
 
@@ -745,7 +990,10 @@ class MiltopApp:
             detail = s.cpu_model or self.t("logical_cpu", count=len(s.per_cpu))
             return self.t("processor"), f"{s.cpu:.0f}%", detail, list(h["cpu"]), 100.0
         if component == "gpu":
-            return s.gpu_name or "GPU", f"{s.gpu_usage or 0:.0f}%", self.t("gpu_usage"), list(h["gpu"]), 100.0
+            primary = s.gpus[0]
+            value = f"{s.gpu_usage:.0f}%" if s.gpu_usage is not None else str(len(s.gpus))
+            detail = f"{self.t(primary.kind + '_gpu')} • {primary.name}"
+            return self.t("graphics"), value, detail, list(h["gpu"]), 100.0
         if component == "memory":
             hardware = s.memory_hardware or self.t("memory_hardware_unknown")
             detail = f"{hardware} • {human_bytes(s.memory.used)} / {human_bytes(s.memory.total)}"
@@ -879,6 +1127,7 @@ class MiltopApp:
     ) -> None:
         if height < 3:
             return
+
         rows = self.sorted_processes(memory_sort)
         visible_count = max(1, height - 2)
         if interactive and rows:
@@ -982,12 +1231,25 @@ class MiltopApp:
 
     def draw_gpu(self, y: int, x: int, height: int, width: int) -> None:
         s = self.snapshot
-        usage = s.gpu_usage or 0.0
-        self.draw_detail_header(y, x, width, (s.gpu_name or "GPU").upper(), f"{usage:.0f}%", self.t("gpu_usage"))
-        graph_h = max(6, min(14, height // 2))
+        usage = s.gpu_usage
+        primary = s.gpus[0]
+        kind = self.t(primary.kind + "_gpu")
+        value = f"{usage:.0f}%" if usage is not None else "—"
+        self.draw_detail_header(y, x, width, self.t("graphics").upper(), value, f"{kind} • {primary.name}")
+        graph_h = max(5, min(11, height // 3))
         self.draw_chart(y + 4, x, graph_h, width, list(self.sampler.histories["gpu"]), ceiling=100.0, primary_color=Theme.SECONDARY)
-        self.add(y + graph_h + 5, x, self.t("current_usage"), self.attr(Theme.MUTED))
-        self.draw_percent_bar(y + graph_h + 6, x, width, usage, Theme.SECONDARY)
+        details_y = y + graph_h + 6
+        self.add(details_y - 1, x, self.t("detected_gpus"), self.attr(Theme.MUTED, curses.A_BOLD), width)
+        for index, gpu in enumerate(s.gpus):
+            row_y = details_y + index * 2
+            if row_y >= y + height:
+                break
+            label = f"{index + 1}. {gpu.name}"
+            gpu_value = f"{gpu.usage:.0f}%" if gpu.usage is not None else self.t("usage_unavailable")
+            self.add(row_y, x, ellipsize(label, max(1, width - len(gpu_value) - 2)), self.attr(Theme.TEXT, curses.A_BOLD), width)
+            self.add(row_y, max(x, x + width - len(gpu_value)), gpu_value, self.attr(Theme.SECONDARY), len(gpu_value))
+            metadata = f"{self.t(gpu.kind + '_gpu')} • {gpu.pci_address} • {gpu.card}"
+            self.add(row_y + 1, x, ellipsize(metadata, width), self.attr(Theme.MUTED), width)
 
     def draw_memory(self, y: int, x: int, height: int, width: int) -> None:
         s = self.snapshot
@@ -1194,6 +1456,11 @@ class MiltopApp:
                 self.confirm_process = None
             return
 
+        if key in (ord("c"), ord("C")):
+            self.theme = choose_theme(self.screen, self.color, self.language, self.theme)
+            self._configure_terminal()
+            return
+
         if key in (ord("r"), ord("R")):
             self.cores_mode = not self.cores_mode
             self.core_page = 0
@@ -1210,7 +1477,7 @@ class MiltopApp:
             elif key in (curses.KEY_RIGHT, curses.KEY_DOWN, curses.KEY_NPAGE):
                 self.core_page += 1
             elif key in (ord("l"), ord("L")):
-                self.language = choose_language(self.screen, self.color, self.language)
+                self.language = choose_language(self.screen, self.color, self.language, self.theme)
                 self._configure_terminal()
             return
 
@@ -1256,7 +1523,7 @@ class MiltopApp:
         elif key in (ord("s"), ord("S")):
             self.sort_mode = "ram" if self.sort_mode == "cpu" else "cpu"
         elif key in (ord("l"), ord("L")):
-            self.language = choose_language(self.screen, self.color, self.language)
+            self.language = choose_language(self.screen, self.color, self.language, self.theme)
             self._configure_terminal()
         elif key in (ord("+"), ord("=")):
             self.interval = max(0.25, self.interval - 0.25)
@@ -1293,8 +1560,9 @@ def print_snapshot(language: str = "pl") -> None:
     time.sleep(0.12)
     snap = sampler.sample()
     print(f"CPU       {snap.cpu:5.1f}%")
-    if snap.gpu_usage is not None:
-        print(f"{(snap.gpu_name or 'GPU'):<9} {snap.gpu_usage:5.1f}%")
+    for gpu in snap.gpus:
+        usage = f"{gpu.usage:5.1f}%" if gpu.usage is not None else "   n/a"
+        print(f"GPU       {usage}  {text(language, gpu.kind + '_gpu')} • {gpu.name}")
     print(f"{text(language, 'memory'):<10}{snap.memory.percent:5.1f}%  {human_bytes(snap.memory.used)} / {human_bytes(snap.memory.total)}")
     print(f"{text(language, 'disk'):<10}{snap.disk.percent:5.1f}%  R {human_rate(snap.disk_read_rate)}  W {human_rate(snap.disk_write_rate)}")
     print(f"{text(language, 'network'):<19}↓ {human_rate(snap.net_down)}  ↑ {human_rate(snap.net_up)}")
@@ -1323,9 +1591,10 @@ def main() -> int:
     try:
         def run_session(screen: Any) -> None:
             language = load_language()
+            theme = load_theme()
             if language is None:
-                language = choose_language(screen, not args.no_color)
-            MiltopApp(screen, args.interval, not args.no_color, language).run()
+                language = choose_language(screen, not args.no_color, theme=theme)
+            MiltopApp(screen, args.interval, not args.no_color, language, theme).run()
 
         curses.wrapper(run_session)
     except KeyboardInterrupt:

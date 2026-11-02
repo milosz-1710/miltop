@@ -16,8 +16,8 @@ Ready-to-install Linux packages are available on the
 
 | Distribution | Download | Install |
 | --- | --- | --- |
-| Debian, Ubuntu, Linux Mint | **[Download `.deb`](https://github.com/milosz-1710/miltop/releases/download/v1.2.0/miltop_1.2.0_all.deb)** | `sudo apt install ./miltop_1.2.0_all.deb` |
-| Fedora | **[Download `.rpm`](https://github.com/milosz-1710/miltop/releases/download/v1.2.0/miltop-1.2.0-1.noarch.rpm)** | `sudo dnf install ./miltop-1.2.0-1.noarch.rpm` |
+| Debian, Ubuntu, Linux Mint | **[Download `.deb`](https://github.com/milosz-1710/miltop/releases/download/v1.3.0/miltop_1.3.0_all.deb)** | `sudo apt install ./miltop_1.3.0_all.deb` |
+| Fedora | **[Download `.rpm`](https://github.com/milosz-1710/miltop/releases/download/v1.3.0/miltop-1.3.0-1.noarch.rpm)** | `sudo dnf install ./miltop-1.3.0-1.noarch.rpm` |
 
 The packages are architecture-independent: Debian marks this as `all`, while
 RPM uses `noarch`.
@@ -28,8 +28,11 @@ RPM uses `noarch`.
 - live graphs without a permanently busy redraw loop;
 - responsive per-core CPU view available with `R`;
 - processor model, physical-core/thread topology and current/max frequency;
+- integrated/dedicated GPU detection with vendor, full model and multi-GPU
+  details, plus utilization when exposed by the driver;
 - RAM generation, speed, module layout, manufacturer and part number when
   reported by `inxi` without administrator privileges;
+- six persistent interface color themes available from the `C` settings screen;
 - interactive process list with CPU/RAM sorting;
 - safe process termination: Backspace opens a confirmation and sends SIGTERM;
 - English and Polish interface with a first-run language selector;
@@ -52,7 +55,7 @@ RPM uses `noarch`.
 Download the `.deb` file from the latest GitHub release and install it with:
 
 ```bash
-sudo apt install ./miltop_1.2.0_all.deb
+sudo apt install ./miltop_1.3.0_all.deb
 ```
 
 ### Fedora
@@ -61,7 +64,7 @@ Download the `.rpm` file from the latest GitHub release and install it through
 DNF:
 
 ```bash
-sudo dnf install ./miltop-1.2.0-1.noarch.rpm
+sudo dnf install ./miltop-1.3.0-1.noarch.rpm
 ```
 
 ### From source
@@ -100,6 +103,7 @@ miltop --no-color
 | `Enter` on Processes | Open the interactive process list |
 | `Backspace` | Ask before ending the selected process |
 | `R` | Open/close the live processor-core view |
+| `C` | Open interface color settings |
 | `S` | Sort processes by CPU/RAM |
 | `L` | Change language |
 | `+` / `-` | Increase/decrease refresh frequency |

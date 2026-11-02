@@ -35,7 +35,7 @@ Depends: python3 (>= 3.10), python3-psutil
 Recommends: inxi
 Homepage: https://github.com/milosz-1710/miltop
 Description: lightweight tile-based terminal system monitor
- miltop displays CPU, memory, disk, network and process information in a
+ miltop displays CPU, GPU, memory, disk, network and process information in a
  keyboard- and mouse-friendly terminal dashboard.
 EOF
 

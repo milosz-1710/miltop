@@ -2,6 +2,25 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.3.0] - 2026-11-02
+
+### Added
+
+- detection of every DRM graphics adapter, including vendor and full PCI model;
+- best-effort classification of integrated and dedicated GPUs;
+- a graphics details view listing multiple adapters and their PCI addresses;
+- live GPU usage when the Linux driver exposes `gpu_busy_percent`;
+- six persistent interface color themes: cyan, green, red, blue, purple and
+  amber, selectable from the new `C` color settings screen.
+
+### Changed
+
+- graphics adapters remain visible even when their driver does not expose a
+  utilization counter;
+- DRM connector entries such as HDMI and DisplayPort are no longer mistaken
+  for additional graphics cards;
+- language changes now preserve the selected color theme.
+
 ## [1.2.0] - 2026-10-26
 
 ### Added
