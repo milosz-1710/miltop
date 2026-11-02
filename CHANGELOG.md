@@ -2,6 +2,34 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.4.0] - 2026-11-02
+
+### Added
+
+- real Intel GPU utilization from unprivileged DRM `fdinfo` engine counters
+  when `gpu_busy_percent` is unavailable;
+- NVIDIA utilization, temperature, VRAM and clock details through `nvidia-smi`;
+- GPU temperature, current/max clock, graphics memory, driver and measurement
+  source details;
+- a battery component with model, manufacturer, technology, charge, health,
+  cycle count, energy, power draw and estimated remaining time;
+- a clear "No battery detected" state for desktop computers;
+- live process-name/PID search opened with `/`;
+- process GPU activity and an explicitly labelled estimated energy-impact score;
+- persistent process-column visibility settings opened with `V` for CPU, RAM,
+  GPU and energy impact;
+- five process sorting modes: name, CPU, RAM, GPU and energy impact;
+- clickable process table headers and rows.
+
+### Changed
+
+- GPU sampling now reads only file descriptors that actually point to DRM
+  devices, reducing `/proc` work by roughly four times on busy desktops;
+- battery and NVIDIA helper data are cached between fast refresh ticks;
+- the component sidebar now follows the selection in short terminals, keeping
+  the new Battery and Processes tiles reachable;
+- snapshot output now includes live GPU load and battery health.
+
 ## [1.3.0] - 2026-11-02
 
 ### Added

@@ -14,7 +14,7 @@ Requires:       python3-psutil
 Recommends:     inxi
 
 %description
-miltop displays CPU, memory, disk, network and process information in a clean,
+miltop displays CPU, GPU, battery, memory, disk, network and process information in a clean,
 keyboard- and mouse-friendly terminal dashboard. It supports English and Polish
 and can safely request process termination after confirmation.
 
@@ -38,6 +38,9 @@ python3 -m py_compile %{SOURCE0}
 %doc %{_docdir}/%{name}/CHANGELOG.md
 
 %changelog
+* Mon Nov 02 2026 Miłosz <79249752+milosz-1710@users.noreply.github.com> - 1.4.0-1
+- Add live GPU details, battery monitoring and process search/sorting
+
 * Mon Nov 02 2026 Miłosz <79249752+milosz-1710@users.noreply.github.com> - 1.3.0-1
 - Add GPU identification and interface color themes
 

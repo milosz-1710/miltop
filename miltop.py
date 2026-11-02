@@ -24,10 +24,11 @@ from typing import Any
 import psutil
 
 
-VERSION = "1.3.0"
+VERSION = "1.4.0"
 BLOCKS = " ▁▂▃▄▅▆▇█"
 CONFIG_FILE = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config")) / "miltop" / "config.json"
 THEME_NAMES = ("cyan", "green", "red", "blue", "purple", "amber")
+PROCESS_COLUMN_NAMES = ("cpu", "ram", "gpu", "energy")
 LOGO = (
     "███╗   ███╗██╗██╗  ████████╗ ██████╗ ██████╗ ",
     "████╗ ████║██║██║  ╚══██╔══╝██╔═══██╗██╔══██╗",
@@ -55,13 +56,38 @@ TEXTS: dict[str, dict[str, str]] = {
         "unknown_gpu": "Typ nierozpoznany",
         "detected_gpus": "Wykryte układy graficzne",
         "usage_unavailable": "użycie niedostępne",
+        "temperature": "Temperatura",
+        "frequency": "Taktowanie",
+        "video_memory": "Pamięć grafiki",
+        "shared_memory": "współdzielona z RAM",
+        "driver": "Sterownik",
+        "measurement": "Pomiar",
+        "battery": "Bateria",
+        "battery_not_detected": "Nie wykryto baterii",
+        "battery_not_detected_hint": "To normalne w komputerze stacjonarnym.",
+        "battery_health": "Kondycja",
+        "battery_capacity": "Naładowanie",
+        "battery_model": "Model",
+        "battery_manufacturer": "Producent",
+        "battery_technology": "Technologia",
+        "battery_cycles": "Cykle ładowania",
+        "battery_energy": "Energia",
+        "battery_power": "Pobór mocy",
+        "battery_time": "Pozostały czas",
+        "battery_status": "Stan",
+        "charging": "Ładowanie",
+        "discharging": "Rozładowywanie",
+        "full": "Pełna",
+        "not_charging": "Nie ładuje",
+        "unknown": "Nieznany",
         "memory": "Pamięć",
         "used_of": "{used} z {total}",
         "disk": "Dysk",
         "network": "Sieć",
         "processes": "Procesy",
         "footer": "↑↓ wybór   Enter otwórz   R rdzenie   C kolory   L język   Q wyjście",
-        "footer_process": "↑↓ proces   S CPU/RAM   Backspace zakończ   C kolory   Esc wróć   Q wyjście",
+        "footer_process": "↑↓ proces   / szukaj   S sortuj   V kolumny   Backspace zakończ   Esc wróć",
+        "footer_search": "Wpisz nazwę   Enter zatwierdź   Esc wyczyść   Backspace usuń znak",
         "footer_confirm": "←→ wybór   Enter zatwierdź   Esc anuluj",
         "footer_cores": "R/Esc wróć   PgUp/PgDn strona   C kolory   L język   Q wyjście",
         "cpu_cores": "RDZENIE PROCESORA",
@@ -80,6 +106,15 @@ TEXTS: dict[str, dict[str, str]] = {
         "uploading": "↑ wysyłanie",
         "sorting": "sortowanie",
         "process": "PROCES",
+        "search": "Szukaj",
+        "no_processes": "Brak procesów pasujących do wyszukiwania",
+        "process_columns": "KOLUMNY PROCESÓW",
+        "process_columns_hint": "↑↓ wybór   Spacja włącz/wyłącz   Enter zapisz   Esc anuluj",
+        "column_cpu": "Użycie CPU",
+        "column_ram": "Użycie RAM",
+        "column_gpu": "Użycie GPU",
+        "column_energy": "Wpływ energetyczny (szacunek)",
+        "energy_short": "ENER.",
         "small_title": "miltop potrzebuje trochę więcej miejsca",
         "terminal": "Terminal",
         "minimum": "Minimum: 72×20",
@@ -122,13 +157,38 @@ TEXTS: dict[str, dict[str, str]] = {
         "unknown_gpu": "Unknown type",
         "detected_gpus": "Detected graphics adapters",
         "usage_unavailable": "usage unavailable",
+        "temperature": "Temperature",
+        "frequency": "Clock",
+        "video_memory": "Graphics memory",
+        "shared_memory": "shared system memory",
+        "driver": "Driver",
+        "measurement": "Measurement",
+        "battery": "Battery",
+        "battery_not_detected": "No battery detected",
+        "battery_not_detected_hint": "This is normal on a desktop computer.",
+        "battery_health": "Health",
+        "battery_capacity": "Charge",
+        "battery_model": "Model",
+        "battery_manufacturer": "Manufacturer",
+        "battery_technology": "Technology",
+        "battery_cycles": "Charge cycles",
+        "battery_energy": "Energy",
+        "battery_power": "Power draw",
+        "battery_time": "Time remaining",
+        "battery_status": "Status",
+        "charging": "Charging",
+        "discharging": "Discharging",
+        "full": "Full",
+        "not_charging": "Not charging",
+        "unknown": "Unknown",
         "memory": "Memory",
         "used_of": "{used} of {total}",
         "disk": "Disk",
         "network": "Network",
         "processes": "Processes",
         "footer": "↑↓ select   Enter open   R cores   C colors   L language   Q quit",
-        "footer_process": "↑↓ process   S CPU/RAM   Backspace end   C colors   Esc back   Q quit",
+        "footer_process": "↑↓ process   / search   S sort   V columns   Backspace end   Esc back",
+        "footer_search": "Type a name   Enter apply   Esc clear   Backspace erase",
         "footer_confirm": "←→ select   Enter confirm   Esc cancel",
         "footer_cores": "R/Esc back   PgUp/PgDn page   C colors   L language   Q quit",
         "cpu_cores": "PROCESSOR CORES",
@@ -147,6 +207,15 @@ TEXTS: dict[str, dict[str, str]] = {
         "uploading": "↑ upload",
         "sorting": "sorting",
         "process": "PROCESS",
+        "search": "Search",
+        "no_processes": "No processes match the search",
+        "process_columns": "PROCESS COLUMNS",
+        "process_columns_hint": "↑↓ select   Space toggle   Enter save   Esc cancel",
+        "column_cpu": "CPU usage",
+        "column_ram": "RAM usage",
+        "column_gpu": "GPU usage",
+        "column_energy": "Energy impact (estimate)",
+        "energy_short": "ENER.",
         "small_title": "miltop needs a little more room",
         "terminal": "Terminal",
         "minimum": "Minimum: 72×20",
@@ -214,6 +283,17 @@ def load_theme() -> str:
 def save_theme(theme: str) -> None:
     if theme in THEME_NAMES:
         save_config(theme=theme)
+
+
+def load_process_columns() -> list[str]:
+    columns = load_config().get("process_columns")
+    if not isinstance(columns, list):
+        return list(PROCESS_COLUMN_NAMES)
+    return [column for column in PROCESS_COLUMN_NAMES if column in columns]
+
+
+def save_process_columns(columns: list[str]) -> None:
+    save_config(process_columns=[column for column in PROCESS_COLUMN_NAMES if column in columns])
 
 
 def clamp(value: float, low: float, high: float) -> float:
@@ -285,6 +365,8 @@ class ProcessRow:
     name: str
     cpu: float
     memory: int
+    gpu: float = 0.0
+    energy: float = 0.0
 
 
 @dataclass
@@ -295,12 +377,43 @@ class GpuDevice:
     model: str
     kind: str
     usage_path: Path | None = field(default=None, repr=False)
+    temperature_path: Path | None = field(default=None, repr=False)
+    frequency_path: Path | None = field(default=None, repr=False)
+    frequency_max_path: Path | None = field(default=None, repr=False)
+    vram_total_path: Path | None = field(default=None, repr=False)
+    vram_used_path: Path | None = field(default=None, repr=False)
+    driver: str = ""
     usage: float | None = None
+    temperature: float | None = None
+    frequency: float | None = None
+    frequency_max: float | None = None
+    vram_total: int = 0
+    vram_used: int = 0
+    usage_source: str = ""
 
     @property
     def name(self) -> str:
         values = [value for value in (self.vendor, self.model) if value]
         return " ".join(values) or self.card.upper()
+
+
+@dataclass
+class BatteryDevice:
+    name: str
+    manufacturer: str = ""
+    model: str = ""
+    serial: str = ""
+    technology: str = ""
+    status: str = "Unknown"
+    percent: float = 0.0
+    health: float | None = None
+    cycles: int | None = None
+    energy_now: float | None = None
+    energy_full: float | None = None
+    energy_design: float | None = None
+    power: float | None = None
+    voltage: float | None = None
+    time_remaining: float | None = None
 
 
 @dataclass
@@ -331,10 +444,11 @@ class Snapshot:
     gpu_name: str = ""
     gpu_usage: float | None = None
     gpus: list[GpuDevice] = field(default_factory=list)
+    batteries: list[BatteryDevice] = field(default_factory=list)
 
 
 class Sampler:
-    def __init__(self, history_size: int = 600) -> None:
+    def __init__(self, history_size: int = 600, *, background_hardware: bool = True) -> None:
         self.histories: dict[str, deque[float]] = {
             name: deque(maxlen=history_size)
             for name in (
@@ -347,6 +461,7 @@ class Sampler:
                 "net_up",
                 "processes",
                 "gpu",
+                "battery",
             )
         }
         self.previous_time = time.monotonic()
@@ -364,12 +479,40 @@ class Sampler:
         self.physical_cores = int(psutil.cpu_count(logical=False) or 0)
         self.memory_hardware = ""
         self.memory_model = ""
-        threading.Thread(target=self._load_memory_hardware, name="miltop-hardware", daemon=True).start()
-        self.gpus = self._find_gpus()
+        # Start with fast sysfs identification.  Human-friendly PCI names and
+        # optional DIMM data are enriched in one background worker because a
+        # cold lspci/inxi call can otherwise delay the first frame by seconds.
+        self.gpus = self._find_gpus(with_pci_names=False)
+        self.previous_gpu_engines: dict[tuple[int, str, str, str], int] = {}
+        self.gpu_usage_checked = 0.0
+        self.cached_fdinfo_usage: dict[str, float] = {}
+        self.cached_process_gpu_usage: dict[int, float] = {}
+        self.cached_nvidia_metrics: dict[str, dict[str, float]] = {}
+        self.nvidia_checked = 0.0
+        self.cached_batteries: list[BatteryDevice] = []
+        self.battery_checked = 0.0
+        self._read_fdinfo_gpu_usage(time.monotonic())
         psutil.cpu_percent(interval=None, percpu=True)
+        # Detailed DIMM probing is optional and may invoke inxi/lspci.  Start
+        # it only after the fast-path hardware setup so it never delays the UI.
+        if background_hardware:
+            threading.Thread(target=self._load_hardware_details, name="miltop-hardware", daemon=True).start()
 
     def _load_memory_hardware(self) -> None:
         self.memory_hardware, self.memory_model = self._read_memory_hardware()
+
+    def _load_hardware_details(self) -> None:
+        self._load_gpu_names()
+        self._load_memory_hardware()
+
+    def _load_gpu_names(self) -> None:
+        names = self._pci_gpu_names()
+        for gpu in self.gpus:
+            vendor, model = names.get(gpu.pci_address, ("", ""))
+            if vendor:
+                gpu.vendor = vendor
+            if model:
+                gpu.model = model
 
     @staticmethod
     def _read_cpu_model() -> str:
@@ -483,8 +626,13 @@ class Sampler:
         return "unknown"
 
     @classmethod
-    def _find_gpus(cls, drm_root: Path = Path("/sys/class/drm")) -> list[GpuDevice]:
-        pci_names = cls._pci_gpu_names()
+    def _find_gpus(
+        cls,
+        drm_root: Path = Path("/sys/class/drm"),
+        *,
+        with_pci_names: bool = True,
+    ) -> list[GpuDevice]:
+        pci_names = cls._pci_gpu_names() if with_pci_names else {}
         vendor_names = {
             "0x1002": "AMD",
             "0x8086": "Intel",
@@ -524,6 +672,19 @@ class Sampler:
             vendor = pci_vendor or vendor_names.get(vendor_id, vendor_id or "GPU")
             model = pci_model or (f"Device {device_id}" if device_id else card.name.upper())
             usage_path = device_dir / "gpu_busy_percent"
+
+            def first_file(paths: list[Path]) -> Path | None:
+                return next((path for path in paths if path.is_file()), None)
+
+            temperature_paths: list[Path] = []
+            try:
+                temperature_paths.extend(sorted((device_dir / "hwmon").glob("hwmon*/temp1_input")))
+            except OSError:
+                pass
+            try:
+                driver = (device_dir / "driver").resolve(strict=True).name
+            except OSError:
+                driver = ""
             devices.append(GpuDevice(
                 card=card.name,
                 pci_address=pci_address,
@@ -531,19 +692,291 @@ class Sampler:
                 model=model,
                 kind=cls._gpu_kind(vendor_id, model, pci_address, vram_bytes),
                 usage_path=usage_path if usage_path.is_file() else None,
+                temperature_path=first_file(temperature_paths),
+                frequency_path=first_file([
+                    card / "gt_cur_freq_mhz",
+                    card / "gt_act_freq_mhz",
+                    device_dir / "pp_dpm_sclk",
+                ]),
+                frequency_max_path=first_file([
+                    card / "gt_max_freq_mhz",
+                    device_dir / "pp_dpm_sclk",
+                ]),
+                vram_total_path=first_file([device_dir / "mem_info_vram_total"]),
+                vram_used_path=first_file([device_dir / "mem_info_vram_used"]),
+                driver=driver,
             ))
         return devices
 
-    def _read_gpus(self) -> list[GpuDevice]:
+    @staticmethod
+    def _parse_drm_fdinfo(content: str) -> tuple[str, str, dict[str, int]] | None:
+        """Parse one Linux DRM fdinfo record into device, client and engine counters."""
+        device = ""
+        client = ""
+        engines: dict[str, int] = {}
+        for line in content.splitlines():
+            key, separator, value = line.partition(":")
+            if not separator:
+                continue
+            value = value.strip()
+            if key == "drm-pdev":
+                device = value
+            elif key == "drm-client-id":
+                client = value
+            elif key.startswith("drm-engine-"):
+                match = re.match(r"(\d+)\s+ns", value)
+                if match:
+                    engines[key.removeprefix("drm-engine-")] = int(match.group(1))
+        if not device or not client or not engines:
+            return None
+        return device, client, engines
+
+    def _read_fdinfo_gpu_usage(self, now: float, proc_root: Path = Path("/proc")) -> dict[str, float]:
+        """Estimate GPU load from per-client DRM engine time without root access."""
+        if now - self.gpu_usage_checked < 0.9:
+            return self.cached_fdinfo_usage
+        dt = max(0.001, now - self.gpu_usage_checked) if self.gpu_usage_checked else 0.0
+        self.gpu_usage_checked = now
+        clients: dict[tuple[int, str, str], dict[str, int]] = {}
+        try:
+            process_dirs = [path for path in proc_root.iterdir() if path.name.isdigit()]
+        except OSError:
+            return self.cached_fdinfo_usage
+        for process_dir in process_dirs:
+            try:
+                pid = int(process_dir.name)
+                descriptors = list((process_dir / "fd").iterdir())
+            except (OSError, ValueError):
+                continue
+            for descriptor in descriptors:
+                try:
+                    target = os.readlink(descriptor)
+                except OSError:
+                    continue
+                if "/dev/dri/" not in target:
+                    continue
+                fdinfo = process_dir / "fdinfo" / descriptor.name
+                try:
+                    parsed = self._parse_drm_fdinfo(fdinfo.read_text(errors="replace"))
+                except OSError:
+                    continue
+                if parsed is None:
+                    continue
+                device, client, engines = parsed
+                key = (pid, client, device)
+                existing = clients.setdefault(key, {})
+                for engine, counter in engines.items():
+                    existing[engine] = max(existing.get(engine, 0), counter)
+
+        current: dict[tuple[int, str, str, str], int] = {}
+        deltas: dict[tuple[str, str], int] = {}
+        process_deltas: dict[tuple[int, str, str], int] = {}
+        for (pid, client, device), engines in clients.items():
+            for engine, counter in engines.items():
+                key = (pid, client, device, engine)
+                current[key] = counter
+                previous = self.previous_gpu_engines.get(key)
+                if previous is not None and counter >= previous:
+                    delta_key = (device, engine)
+                    delta = counter - previous
+                    deltas[delta_key] = deltas.get(delta_key, 0) + delta
+                    process_key = (pid, device, engine)
+                    process_deltas[process_key] = process_deltas.get(process_key, 0) + delta
+        self.previous_gpu_engines = current
+        if dt <= 0:
+            self.cached_fdinfo_usage = {}
+            self.cached_process_gpu_usage = {}
+        else:
+            by_device: dict[str, list[float]] = {}
+            for (device, _engine), delta in deltas.items():
+                by_device.setdefault(device, []).append(delta / (dt * 1_000_000_000) * 100.0)
+            self.cached_fdinfo_usage = {
+                device: clamp(max(values, default=0.0), 0.0, 100.0)
+                for device, values in by_device.items()
+            }
+            by_process: dict[int, list[float]] = {}
+            for (pid, _device, _engine), delta in process_deltas.items():
+                by_process.setdefault(pid, []).append(delta / (dt * 1_000_000_000) * 100.0)
+            self.cached_process_gpu_usage = {
+                pid: clamp(sum(values), 0.0, 100.0)
+                for pid, values in by_process.items()
+            }
+        return self.cached_fdinfo_usage
+
+    @staticmethod
+    def _read_number(path: Path | None, scale: float = 1.0) -> float | None:
+        if path is None:
+            return None
+        try:
+            content = path.read_text().strip()
+            # AMD clock tables mark the current level with an asterisk.
+            matches = re.findall(r"([0-9.]+)\s*(?:Mhz|MHz)?", content)
+            if not matches:
+                return None
+            return float(matches[-1] if "*" not in content else next(
+                (re.search(r"([0-9.]+)", line).group(1) for line in content.splitlines() if "*" in line and re.search(r"([0-9.]+)", line)),
+                matches[-1],
+            )) / scale
+        except (OSError, ValueError, AttributeError):
+            return None
+
+    @staticmethod
+    def _read_nvidia_metrics() -> dict[str, dict[str, float]]:
+        """Read NVIDIA metrics when the proprietary driver's CLI is available."""
+        fields = (
+            "pci.bus_id,utilization.gpu,temperature.gpu,memory.used,memory.total,"
+            "clocks.current.graphics,clocks.max.graphics"
+        )
+        try:
+            result = subprocess.run(
+                ["nvidia-smi", f"--query-gpu={fields}", "--format=csv,noheader,nounits"],
+                capture_output=True, text=True, timeout=2, check=False,
+            )
+        except (OSError, subprocess.SubprocessError):
+            return {}
+        if result.returncode != 0:
+            return {}
+        metrics: dict[str, dict[str, float]] = {}
+        for line in result.stdout.splitlines():
+            values = [value.strip() for value in line.split(",")]
+            if len(values) != 7:
+                continue
+            address_parts = values[0].lower().split(":")
+            if len(address_parts) == 3:
+                address = f"{address_parts[0][-4:]}:{address_parts[1]}:{address_parts[2]}"
+            else:
+                address = values[0].lower()
+            try:
+                metrics[address] = {
+                    "usage": float(values[1]), "temperature": float(values[2]),
+                    "vram_used": float(values[3]) * 1024 ** 2,
+                    "vram_total": float(values[4]) * 1024 ** 2,
+                    "frequency": float(values[5]), "frequency_max": float(values[6]),
+                }
+            except ValueError:
+                continue
+        return metrics
+
+    def _read_gpus(self, now: float) -> list[GpuDevice]:
+        fdinfo_usage = self._read_fdinfo_gpu_usage(now)
+        if any(gpu.driver == "nvidia" for gpu in self.gpus) and now - self.nvidia_checked >= 1.0:
+            self.cached_nvidia_metrics = self._read_nvidia_metrics()
+            self.nvidia_checked = now
+        nvidia_metrics = self.cached_nvidia_metrics
         for gpu in self.gpus:
             gpu.usage = None
-            if gpu.usage_path is None:
-                continue
-            try:
-                gpu.usage = clamp(float(gpu.usage_path.read_text().strip()), 0.0, 100.0)
-            except (OSError, ValueError):
-                pass
+            gpu.usage_source = ""
+            if gpu.usage_path is not None:
+                value = self._read_number(gpu.usage_path)
+                if value is not None:
+                    gpu.usage = clamp(value, 0.0, 100.0)
+                    gpu.usage_source = "sysfs"
+            elif gpu.pci_address in fdinfo_usage:
+                gpu.usage = fdinfo_usage[gpu.pci_address]
+                gpu.usage_source = "DRM fdinfo"
+            gpu.temperature = self._read_number(gpu.temperature_path, 1000.0)
+            gpu.frequency = self._read_number(gpu.frequency_path)
+            gpu.frequency_max = self._read_number(gpu.frequency_max_path)
+            gpu.vram_total = int(self._read_number(gpu.vram_total_path) or 0)
+            gpu.vram_used = int(self._read_number(gpu.vram_used_path) or 0)
+            if gpu.pci_address in nvidia_metrics:
+                metrics = nvidia_metrics[gpu.pci_address]
+                gpu.usage = clamp(metrics["usage"], 0.0, 100.0)
+                gpu.temperature = metrics["temperature"]
+                gpu.vram_used = int(metrics["vram_used"])
+                gpu.vram_total = int(metrics["vram_total"])
+                gpu.frequency = metrics["frequency"]
+                gpu.frequency_max = metrics["frequency_max"]
+                gpu.usage_source = "nvidia-smi"
         return self.gpus
+
+    @staticmethod
+    def _read_batteries(power_root: Path = Path("/sys/class/power_supply")) -> list[BatteryDevice]:
+        """Read laptop battery identity and live health data from Linux power_supply."""
+        batteries: list[BatteryDevice] = []
+        try:
+            supplies = sorted(power_root.iterdir())
+        except OSError:
+            return batteries
+
+        for supply in supplies:
+            def value(name: str, default: str = "") -> str:
+                try:
+                    return (supply / name).read_text().strip()
+                except OSError:
+                    return default
+
+            if value("type").lower() != "battery" or value("present", "1") == "0":
+                continue
+
+            def number(name: str) -> float | None:
+                try:
+                    return float(value(name))
+                except ValueError:
+                    return None
+
+            voltage_uv = number("voltage_now") or number("voltage_min_design")
+            energy_now_raw = number("energy_now")
+            energy_full_raw = number("energy_full")
+            energy_design_raw = number("energy_full_design")
+            power_raw = number("power_now")
+            charge_now = number("charge_now")
+            charge_full = number("charge_full")
+            charge_design = number("charge_full_design")
+            current_now = number("current_now")
+
+            def energy_wh(energy: float | None, charge: float | None) -> float | None:
+                if energy is not None:
+                    return energy / 1_000_000.0
+                if charge is not None and voltage_uv is not None:
+                    return charge * voltage_uv / 1_000_000_000_000.0
+                return None
+
+            energy_now = energy_wh(energy_now_raw, charge_now)
+            energy_full = energy_wh(energy_full_raw, charge_full)
+            energy_design = energy_wh(energy_design_raw, charge_design)
+            if power_raw is not None:
+                power = power_raw / 1_000_000.0
+            elif current_now is not None and voltage_uv is not None:
+                power = current_now * voltage_uv / 1_000_000_000_000.0
+            else:
+                power = None
+            health = None
+            if energy_full and energy_design:
+                health = clamp(energy_full / energy_design * 100.0, 0.0, 150.0)
+            remaining = None
+            status = value("status", "Unknown")
+            if power and power > 0:
+                if status.lower() == "charging" and energy_full is not None and energy_now is not None:
+                    remaining = max(0.0, energy_full - energy_now) / power * 3600.0
+                elif energy_now is not None:
+                    remaining = energy_now / power * 3600.0
+            try:
+                cycles = int(value("cycle_count"))
+            except ValueError:
+                cycles = None
+            try:
+                percent = clamp(float(value("capacity", "0")), 0.0, 100.0)
+            except ValueError:
+                percent = 0.0
+            batteries.append(BatteryDevice(
+                name=supply.name,
+                manufacturer=value("manufacturer"),
+                model=value("model_name"),
+                serial=value("serial_number"),
+                technology=value("technology"),
+                status=status,
+                percent=percent,
+                health=health,
+                cycles=cycles,
+                energy_now=energy_now,
+                energy_full=energy_full,
+                energy_design=energy_design,
+                power=power,
+                voltage=voltage_uv / 1_000_000.0 if voltage_uv is not None else None,
+                time_remaining=remaining,
+            ))
+        return batteries
 
     def _read_temperature(self, now: float) -> float | None:
         if now - self.temperature_checked < 4.0:
@@ -581,6 +1014,7 @@ class Sampler:
                         name=info.get("name") or "?",
                         cpu=cpu,
                         memory=int(info["memory_info"].rss),
+                        gpu=self.cached_process_gpu_usage.get(pid, 0.0),
                     )
                 )
             except (psutil.NoSuchProcess, psutil.AccessDenied, AttributeError, TypeError):
@@ -621,6 +1055,12 @@ class Sampler:
             net_up = max(0.0, (net_now.bytes_sent - self.previous_net.bytes_sent) / dt)
         self.previous_net = net_now
 
+        freq = psutil.cpu_freq()
+        gpus = self._read_gpus(now)
+        gpu_values = [device.usage for device in gpus if device.usage is not None]
+        gpu = max(gpu_values) if gpu_values else None
+        primary_gpu = gpus[0] if gpus else None
+
         # Enumerating every /proc entry is the most expensive part of a task
         # manager.  Hardware graphs stay live every tick, while the process
         # table refreshes every two seconds - visually immediate, much lighter.
@@ -629,13 +1069,17 @@ class Sampler:
             self.cached_processes, self.cached_process_count, self.cached_thread_count = self._processes(process_dt)
             self.last_process_sample = now
         processes = self.cached_processes
+        for process in processes:
+            process.gpu = self.cached_process_gpu_usage.get(process.pid, 0.0)
+            # Linux does not expose reliable per-process watts.  This bounded
+            # activity score is intentionally labelled as an energy impact.
+            process.energy = clamp(process.cpu * 0.65 + process.gpu * 0.35, 0.0, 100.0)
         process_count = self.cached_process_count
         thread_count = self.cached_thread_count
-        freq = psutil.cpu_freq()
-        gpus = self._read_gpus()
-        gpu_values = [device.usage for device in gpus if device.usage is not None]
-        gpu = max(gpu_values) if gpu_values else None
-        primary_gpu = gpus[0] if gpus else None
+        if now - self.battery_checked >= 1.0:
+            self.cached_batteries = self._read_batteries()
+            self.battery_checked = now
+        batteries = self.cached_batteries
 
         snap = Snapshot(
             timestamp=time.time(),
@@ -664,6 +1108,7 @@ class Sampler:
             gpu_name=primary_gpu.name if primary_gpu else "",
             gpu_usage=gpu,
             gpus=gpus,
+            batteries=batteries,
         )
 
         values = {
@@ -676,6 +1121,7 @@ class Sampler:
             "net_up": net_up,
             "processes": float(process_count),
             "gpu": gpu or 0.0,
+            "battery": batteries[0].percent if batteries else 0.0,
         }
         for key, value in values.items():
             self.histories[key].append(float(value))
@@ -894,6 +1340,60 @@ def choose_theme(screen: Any, color: bool, language: str, current: str) -> str:
             return original
 
 
+def choose_process_columns(screen: Any, color: bool, language: str, current: list[str], theme: str) -> list[str]:
+    """Let users persistently choose optional columns in the process table."""
+    original = [column for column in PROCESS_COLUMN_NAMES if column in current]
+    enabled = set(original)
+    selected = 0
+    screen.timeout(-1)
+    Theme.init(color, theme)
+    while True:
+        screen.erase()
+        height, width = screen.getmaxyx()
+        title = text(language, "process_columns")
+        hint = text(language, "process_columns_hint")
+        start_y = max(2, (height - len(PROCESS_COLUMN_NAMES) * 3 - 5) // 2)
+        panel_width = min(max(44, len(hint) + 4), max(20, width - 4))
+        start_x = max(1, (width - panel_width) // 2)
+        try:
+            screen.addnstr(start_y, max(1, (width - len(title)) // 2), title, width - 2, curses.color_pair(Theme.ACCENT) | curses.A_BOLD)
+        except curses.error:
+            pass
+        for index, column in enumerate(PROCESS_COLUMN_NAMES):
+            row = start_y + 2 + index * 2
+            checked = column in enabled
+            marker = "●" if checked else "○"
+            label = text(language, f"column_{column}")
+            value = f" {marker}  {label}"
+            attr = curses.color_pair(Theme.SELECTED) | curses.A_BOLD if index == selected else curses.color_pair(Theme.TEXT if checked else Theme.MUTED)
+            try:
+                screen.addnstr(row, start_x, value.ljust(panel_width), panel_width, attr)
+            except curses.error:
+                pass
+        try:
+            screen.addnstr(start_y + 2 + len(PROCESS_COLUMN_NAMES) * 2, max(1, (width - len(hint)) // 2), hint, width - 2, curses.color_pair(Theme.MUTED))
+        except curses.error:
+            pass
+        screen.refresh()
+        key = screen.getch()
+        if key in (curses.KEY_UP, ord("k"), ord("K")):
+            selected = (selected - 1) % len(PROCESS_COLUMN_NAMES)
+        elif key in (curses.KEY_DOWN, ord("j"), ord("J")):
+            selected = (selected + 1) % len(PROCESS_COLUMN_NAMES)
+        elif key == ord(" "):
+            column = PROCESS_COLUMN_NAMES[selected]
+            if column in enabled:
+                enabled.remove(column)
+            else:
+                enabled.add(column)
+        elif key in (10, 13, curses.KEY_ENTER):
+            chosen = [column for column in PROCESS_COLUMN_NAMES if column in enabled]
+            save_process_columns(chosen)
+            return chosen
+        elif key == 27:
+            return original
+
+
 class MiltopApp:
     def __init__(self, screen: Any, interval: float, color: bool = True, language: str = "pl", theme: str = "cyan") -> None:
         self.screen = screen
@@ -907,16 +1407,21 @@ class MiltopApp:
         self.theme = theme if theme in THEME_NAMES else "cyan"
         self.last_sample = time.monotonic()
         self.sort_mode = "cpu"
+        self.process_columns = load_process_columns()
         self.process_mode = False
         self.cores_mode = False
         self.core_page = 0
         self.process_index = 0
         self.process_offset = 0
+        self.search_active = False
+        self.search_query = ""
         self.confirm_process: ProcessRow | None = None
         self.confirm_choice = 0
         self.status_message = ""
         self.status_until = 0.0
-        self.tile_regions: list[tuple[int, int, int, int]] = []
+        self.tile_regions: list[tuple[int, int, int, int, int]] = []
+        self.process_header_regions: dict[str, tuple[int, int, int, int]] = {}
+        self.process_row_regions: list[tuple[int, int, int, int, int]] = []
         self._configure_terminal()
 
     def t(self, key: str, **values: Any) -> str:
@@ -937,7 +1442,7 @@ class MiltopApp:
 
     @property
     def components(self) -> list[str]:
-        items = ["cpu", "memory", "disk", "network", "processes"]
+        items = ["cpu", "memory", "disk", "network", "battery", "processes"]
         if self.snapshot.gpus:
             items.insert(1, "gpu")
         return items
@@ -1002,6 +1507,12 @@ class MiltopApp:
             return self.t("disk"), f"{s.disk.percent:.0f}%", f"R {human_rate(s.disk_read_rate)}  W {human_rate(s.disk_write_rate)}", list(h["disk"]), 100.0
         if component == "network":
             return self.t("network"), human_rate(s.net_down), f"↓ {human_rate(s.net_down)}  ↑ {human_rate(s.net_up)}", list(h["net_down"]), None
+        if component == "battery":
+            if not s.batteries:
+                return self.t("battery"), "—", self.t("battery_not_detected"), list(h["battery"]), 100.0
+            battery = s.batteries[0]
+            detail = " • ".join(value for value in (battery.manufacturer, battery.model) if value)
+            return self.t("battery"), f"{battery.percent:.0f}%", detail or battery.name, list(h["battery"]), 100.0
         return self.t("processes"), str(s.process_count), self.t("threads", count=s.thread_count), list(h["processes"]), None
 
     def draw_header(self, width: int) -> None:
@@ -1018,7 +1529,7 @@ class MiltopApp:
         elif self.cores_mode:
             help_text = self.t("footer_cores")
         elif self.process_mode:
-            help_text = self.t("footer_process")
+            help_text = self.t("footer_search") if self.search_active else self.t("footer_process")
         else:
             help_text = self.t("footer")
         self.add(height - 1, 2, ellipsize(help_text, width - 4), self.attr(Theme.MUTED))
@@ -1029,9 +1540,12 @@ class MiltopApp:
         self.selected = min(self.selected, len(components) - 1)
         available = height - 2
         tile_h = 4 if available >= len(components) * 4 else 3
+        visible_tiles = max(1, available // tile_h)
+        first = int(clamp(self.selected - visible_tiles // 2, 0, max(0, len(components) - visible_tiles)))
         self.tile_regions = []
-        for index, component in enumerate(components):
-            tile_y = y + 2 + index * tile_h
+        for visible_index, index in enumerate(range(first, min(len(components), first + visible_tiles))):
+            component = components[index]
+            tile_y = y + 2 + visible_index * tile_h
             if tile_y + tile_h > y + height:
                 break
             selected = index == self.selected
@@ -1050,7 +1564,7 @@ class MiltopApp:
             else:
                 graph_w = max(0, width - len(title) - len(value) - 7)
                 self.add(tile_y + 1, x + len(title) + 3, sparkline(history, graph_w, ceiling), background if selected else self.attr(Theme.ACCENT))
-            self.tile_regions.append((tile_y, x, tile_h, width))
+            self.tile_regions.append((tile_y, x, tile_h, width, index))
 
     def draw_percent_bar(self, y: int, x: int, width: int, value: float, color: int | None = None) -> None:
         width = max(1, width)
@@ -1107,14 +1621,21 @@ class MiltopApp:
                 start = end
         return max_value
 
-    def sorted_processes(self, memory_sort: bool | None = None) -> list[ProcessRow]:
-        if memory_sort is None:
-            memory_sort = self.sort_mode == "ram"
-        return sorted(
-            self.snapshot.processes,
-            key=(lambda proc: proc.memory) if memory_sort else (lambda proc: proc.cpu),
-            reverse=True,
-        )
+    def sorted_processes(self, sort_mode: str | None = None) -> list[ProcessRow]:
+        mode = sort_mode or self.sort_mode
+        rows = self.snapshot.processes
+        query = self.search_query.strip().casefold()
+        if query:
+            rows = [proc for proc in rows if query in proc.name.casefold() or query in str(proc.pid)]
+        if mode == "name":
+            return sorted(rows, key=lambda proc: (proc.name.casefold(), proc.pid))
+        keys = {
+            "ram": lambda proc: proc.memory,
+            "gpu": lambda proc: proc.gpu,
+            "energy": lambda proc: proc.energy,
+        }
+        key = keys.get(mode, lambda proc: proc.cpu)
+        return sorted(rows, key=key, reverse=True)
 
     def draw_process_table(
         self,
@@ -1124,11 +1645,13 @@ class MiltopApp:
         width: int,
         memory_sort: bool = False,
         interactive: bool = False,
+        sort_mode: str | None = None,
     ) -> None:
         if height < 3:
             return
 
-        rows = self.sorted_processes(memory_sort)
+        mode = sort_mode or ("ram" if memory_sort else "cpu")
+        rows = self.sorted_processes(mode)
         visible_count = max(1, height - 2)
         if interactive and rows:
             self.process_index = int(clamp(self.process_index, 0, len(rows) - 1))
@@ -1140,12 +1663,32 @@ class MiltopApp:
             shown = rows[self.process_offset : self.process_offset + visible_count]
         else:
             shown = rows[:visible_count]
-        name_width = max(8, width - 25)
+        column_widths = {"cpu": 6, "ram": 8, "gpu": 6, "energy": 7}
+        enabled_columns = [column for column in PROCESS_COLUMN_NAMES if column in self.process_columns]
+        while enabled_columns and width - 8 - sum(column_widths[column] for column in enabled_columns) < 8:
+            enabled_columns.pop()
+        name_width = max(8, width - 8 - sum(column_widths[column] for column in enabled_columns))
+        self.process_header_regions = {}
+        self.process_row_regions = []
         self.add(y, x, "PID", self.attr(Theme.MUTED, curses.A_BOLD), 7)
-        self.add(y, x + 8, self.t("process"), self.attr(Theme.MUTED, curses.A_BOLD), name_width)
-        self.add(y, x + width - 15, "CPU", self.attr(Theme.MUTED, curses.A_BOLD), 6)
-        self.add(y, x + width - 8, "RAM", self.attr(Theme.MUTED, curses.A_BOLD), 8)
+        name_label = self.t("process") + (" ↑" if mode == "name" else "")
+        self.add(y, x + 8, name_label, self.attr(Theme.ACCENT if mode == "name" else Theme.MUTED, curses.A_BOLD), name_width)
+        column_x: dict[str, int] = {}
+        next_x = x + 8 + name_width
+        labels = {"cpu": "CPU", "ram": "RAM", "gpu": "GPU", "energy": self.t("energy_short")}
+        for column in enabled_columns:
+            column_x[column] = next_x
+            label = labels[column] + (" ↓" if mode == column else "")
+            self.add(y, next_x, label, self.attr(Theme.ACCENT if mode == column else Theme.MUTED, curses.A_BOLD), column_widths[column])
+            next_x += column_widths[column]
+        if interactive:
+            self.process_header_regions = {"name": (y, x + 8, 1, name_width)}
+            self.process_header_regions.update({
+                column: (y, column_x[column], 1, column_widths[column]) for column in enabled_columns
+            })
         self.line(y + 1, x, width, "─", self.attr(Theme.BORDER))
+        if not shown and self.search_query:
+            self.add(y + 3, x, self.t("no_processes"), self.attr(Theme.MUTED), width)
         for index, proc in enumerate(shown):
             row_y = y + 2 + index
             actual_index = self.process_offset + index if interactive else index
@@ -1155,9 +1698,18 @@ class MiltopApp:
                 self.fill(row_y, x, 1, width, row_attr)
             self.add(row_y, x, str(proc.pid), row_attr or self.attr(Theme.MUTED), 7)
             self.add(row_y, x + 8, ellipsize(proc.name, name_width - 1), row_attr or self.attr(Theme.TEXT), name_width)
-            cpu_text = f"{proc.cpu:4.0f}%"
-            self.add(row_y, x + width - 15, cpu_text, row_attr or self.attr(self.metric_color(min(proc.cpu, 100.0))), 6)
-            self.add(row_y, x + width - 8, human_bytes(proc.memory).replace(" ", ""), row_attr or self.attr(Theme.TEXT), 8)
+            values = {
+                "cpu": f"{proc.cpu:4.0f}%",
+                "ram": human_bytes(proc.memory).replace(" ", ""),
+                "gpu": f"{proc.gpu:4.0f}%",
+                "energy": f"{proc.energy:4.0f}%",
+            }
+            for column in enabled_columns:
+                metric = proc.memory if column == "ram" else getattr(proc, column)
+                pair = Theme.TEXT if column == "ram" else self.metric_color(min(float(metric), 100.0))
+                self.add(row_y, column_x[column], values[column], row_attr or self.attr(pair), column_widths[column])
+            if interactive:
+                self.process_row_regions.append((row_y, x, 1, width, actual_index))
 
     def draw_detail_header(self, y: int, x: int, width: int, title: str, value: str, subtitle: str) -> None:
         self.add(y, x, title, self.attr(Theme.TEXT, curses.A_BOLD), width)
@@ -1236,20 +1788,69 @@ class MiltopApp:
         kind = self.t(primary.kind + "_gpu")
         value = f"{usage:.0f}%" if usage is not None else "—"
         self.draw_detail_header(y, x, width, self.t("graphics").upper(), value, f"{kind} • {primary.name}")
-        graph_h = max(5, min(11, height // 3))
+        graph_h = max(4, min(8, height // 4))
         self.draw_chart(y + 4, x, graph_h, width, list(self.sampler.histories["gpu"]), ceiling=100.0, primary_color=Theme.SECONDARY)
         details_y = y + graph_h + 6
         self.add(details_y - 1, x, self.t("detected_gpus"), self.attr(Theme.MUTED, curses.A_BOLD), width)
         for index, gpu in enumerate(s.gpus):
-            row_y = details_y + index * 2
+            row_y = details_y + index * 4
             if row_y >= y + height:
                 break
             label = f"{index + 1}. {gpu.name}"
             gpu_value = f"{gpu.usage:.0f}%" if gpu.usage is not None else self.t("usage_unavailable")
             self.add(row_y, x, ellipsize(label, max(1, width - len(gpu_value) - 2)), self.attr(Theme.TEXT, curses.A_BOLD), width)
             self.add(row_y, max(x, x + width - len(gpu_value)), gpu_value, self.attr(Theme.SECONDARY), len(gpu_value))
-            metadata = f"{self.t(gpu.kind + '_gpu')} • {gpu.pci_address} • {gpu.card}"
+            metadata = f"{self.t(gpu.kind + '_gpu')} • {self.t('driver')}: {gpu.driver or '—'} • PCI {gpu.pci_address} • {gpu.card}"
             self.add(row_y + 1, x, ellipsize(metadata, width), self.attr(Theme.MUTED), width)
+            temperature = f"{gpu.temperature:.0f}°C" if gpu.temperature is not None else "—"
+            maximum = f" / {gpu.frequency_max:.0f} MHz" if gpu.frequency_max else " MHz"
+            frequency = f"{gpu.frequency:.0f}{maximum}" if gpu.frequency is not None else "—"
+            memory = f"{human_bytes(gpu.vram_used)} / {human_bytes(gpu.vram_total)}" if gpu.vram_total else self.t("shared_memory")
+            details = f"{self.t('temperature')}: {temperature} • {self.t('frequency')}: {frequency} • {self.t('video_memory')}: {memory}"
+            self.add(row_y + 2, x, ellipsize(details, width), self.attr(Theme.TEXT), width)
+            source = gpu.usage_source or "—"
+            self.add(row_y + 3, x, f"{self.t('measurement')}: {source}", self.attr(Theme.MUTED), width)
+
+    def draw_battery(self, y: int, x: int, height: int, width: int) -> None:
+        batteries = self.snapshot.batteries
+        if not batteries:
+            self.draw_detail_header(y, x, width, self.t("battery").upper(), "—", self.t("battery_not_detected_hint"))
+            self.add(y + 5, x, self.t("battery_not_detected"), self.attr(Theme.MUTED, curses.A_BOLD), width)
+            return
+        battery = batteries[0]
+        status_keys = {
+            "charging": "charging",
+            "discharging": "discharging",
+            "full": "full",
+            "not charging": "not_charging",
+        }
+        status = self.t(status_keys.get(battery.status.lower(), "unknown"))
+        identity = " • ".join(value for value in (battery.manufacturer, battery.model) if value) or battery.name
+        self.draw_detail_header(y, x, width, self.t("battery").upper(), f"{battery.percent:.0f}%", f"{status} • {identity}")
+        self.draw_percent_bar(y + 4, x, width, battery.percent)
+        graph_h = max(4, min(8, height // 4))
+        self.draw_chart(y + 6, x, graph_h, width, list(self.sampler.histories["battery"]), ceiling=100.0, primary_color=Theme.GOOD)
+        row = y + graph_h + 8
+        health = f"{battery.health:.1f}%" if battery.health is not None else "—"
+        energy = "—"
+        if battery.energy_now is not None and battery.energy_full is not None:
+            design = f" / {battery.energy_design:.1f} Wh proj." if battery.energy_design is not None else ""
+            energy = f"{battery.energy_now:.1f} / {battery.energy_full:.1f} Wh{design}"
+        facts = [
+            (self.t("battery_health"), health),
+            (self.t("battery_cycles"), str(battery.cycles) if battery.cycles is not None else "—"),
+            (self.t("battery_energy"), energy),
+            (self.t("battery_power"), f"{battery.power:.2f} W" if battery.power is not None else "—"),
+            (self.t("battery_time"), duration(battery.time_remaining) if battery.time_remaining is not None else "—"),
+            (self.t("battery_technology"), battery.technology or "—"),
+        ]
+        label_column = min(max(len(label) for label, _ in facts) + 2, max(12, width // 2))
+        for label, fact in facts:
+            if row >= y + height:
+                break
+            self.add(row, x, f"{label}:", self.attr(Theme.MUTED, curses.A_BOLD), label_column)
+            self.add(row, x + label_column, ellipsize(fact, max(1, width - label_column)), self.attr(Theme.TEXT))
+            row += 1
 
     def draw_memory(self, y: int, x: int, height: int, width: int) -> None:
         s = self.snapshot
@@ -1314,6 +1915,9 @@ class MiltopApp:
         subtitle = f"{self.t('threads', count=s.thread_count)} • {self.t('sorting')}: {self.sort_mode.upper()}"
         if self.process_mode:
             subtitle = self.t("process_mode_hint")
+        if self.search_query or self.search_active:
+            cursor = "▌" if self.search_active else ""
+            subtitle = f"{self.t('search')}: {self.search_query}{cursor}"
         if self.status_message and time.monotonic() < self.status_until:
             subtitle = self.status_message
         self.draw_detail_header(y, x, width, self.t("processes").upper(), str(s.process_count), subtitle)
@@ -1323,8 +1927,8 @@ class MiltopApp:
             x,
             max(0, height - 4),
             width,
-            memory_sort=self.sort_mode == "ram",
-            interactive=self.process_mode,
+            interactive=True,
+            sort_mode=self.sort_mode,
         )
 
     def draw_main(self, y: int, x: int, height: int, width: int) -> None:
@@ -1340,6 +1944,7 @@ class MiltopApp:
             "memory": self.draw_memory,
             "disk": self.draw_disk,
             "network": self.draw_network,
+            "battery": self.draw_battery,
             "processes": self.draw_processes,
         }
         handlers[component](inner_y, inner_x, inner_h, inner_w)
@@ -1431,11 +2036,32 @@ class MiltopApp:
             return
         if not state & (curses.BUTTON1_CLICKED | curses.BUTTON1_PRESSED | curses.BUTTON1_RELEASED):
             return
-        for index, (y, x, height, width) in enumerate(self.tile_regions):
+        if self.components[self.selected] == "processes":
+            for mode, (y, x, height, width) in self.process_header_regions.items():
+                if y <= my < y + height and x <= mx < x + width:
+                    self.sort_mode = mode
+                    self.process_index = 0
+                    self.process_offset = 0
+                    return
+            for y, x, height, width, row_index in self.process_row_regions:
+                if y <= my < y + height and x <= mx < x + width:
+                    self.process_mode = True
+                    self.process_index = row_index
+                    return
+        for y, x, height, width, index in self.tile_regions:
             if y <= my < y + height and x <= mx < x + width:
                 self.selected = index
                 self.process_mode = False
                 return
+
+    def cycle_process_sort(self) -> None:
+        modes = ("name", *self.process_columns)
+        if self.sort_mode not in modes:
+            self.sort_mode = modes[0]
+        else:
+            self.sort_mode = modes[(modes.index(self.sort_mode) + 1) % len(modes)]
+        self.process_index = 0
+        self.process_offset = 0
 
     def handle_key(self, key: int) -> None:
         count = len(self.components)
@@ -1454,6 +2080,35 @@ class MiltopApp:
                 self.finish_process()
             elif key in (27, ord("n"), ord("N")) + backspace_keys:
                 self.confirm_process = None
+            return
+
+        if self.search_active:
+            if key in enter_keys:
+                self.search_active = False
+                self.process_index = 0
+                self.process_offset = 0
+            elif key == 27:
+                self.search_query = ""
+                self.search_active = False
+                self.process_index = 0
+                self.process_offset = 0
+            elif key in backspace_keys:
+                self.search_query = self.search_query[:-1]
+                self.process_index = 0
+                self.process_offset = 0
+            elif 32 <= key <= 126:
+                self.search_query += chr(key)
+                self.process_index = 0
+                self.process_offset = 0
+            return
+
+        if key in (ord("v"), ord("V")) and self.components[self.selected] == "processes":
+            self.process_columns = choose_process_columns(
+                self.screen, self.color, self.language, self.process_columns, self.theme,
+            )
+            if self.sort_mode != "name" and self.sort_mode not in self.process_columns:
+                self.sort_mode = "name"
+            self._configure_terminal()
             return
 
         if key in (ord("c"), ord("C")):
@@ -1496,9 +2151,9 @@ class MiltopApp:
             elif key in (curses.KEY_END, ord("G")) and rows:
                 self.process_index = len(rows) - 1
             elif key in (ord("s"), ord("S")):
-                self.sort_mode = "ram" if self.sort_mode == "cpu" else "cpu"
-                self.process_index = 0
-                self.process_offset = 0
+                self.cycle_process_sort()
+            elif key == ord("/"):
+                self.search_active = True
             elif key in backspace_keys:
                 proc = self.selected_process()
                 if proc is not None:
@@ -1521,7 +2176,12 @@ class MiltopApp:
             self.process_index = 0
             self.process_offset = 0
         elif key in (ord("s"), ord("S")):
-            self.sort_mode = "ram" if self.sort_mode == "cpu" else "cpu"
+            self.cycle_process_sort()
+        elif key == ord("/") and self.components[self.selected] == "processes":
+            self.process_mode = True
+            self.search_active = True
+            self.process_index = 0
+            self.process_offset = 0
         elif key in (ord("l"), ord("L")):
             self.language = choose_language(self.screen, self.color, self.language, self.theme)
             self._configure_terminal()
@@ -1556,13 +2216,22 @@ class MiltopApp:
 
 
 def print_snapshot(language: str = "pl") -> None:
-    sampler = Sampler()
-    time.sleep(0.12)
+    sampler = Sampler(background_hardware=False)
+    sampler._load_gpu_names()
+    time.sleep(1.0)
     snap = sampler.sample()
     print(f"CPU       {snap.cpu:5.1f}%")
     for gpu in snap.gpus:
         usage = f"{gpu.usage:5.1f}%" if gpu.usage is not None else "   n/a"
-        print(f"GPU       {usage}  {text(language, gpu.kind + '_gpu')} • {gpu.name}")
+        temperature = f" • {gpu.temperature:.0f}°C" if gpu.temperature is not None else ""
+        frequency = f" • {gpu.frequency:.0f} MHz" if gpu.frequency is not None else ""
+        print(f"GPU       {usage}  {text(language, gpu.kind + '_gpu')} • {gpu.name}{temperature}{frequency}")
+    if snap.batteries:
+        battery = snap.batteries[0]
+        health = f" • {text(language, 'battery_health')} {battery.health:.1f}%" if battery.health is not None else ""
+        print(f"{text(language, 'battery'):<10}{battery.percent:5.1f}%  {battery.manufacturer} {battery.model}{health}")
+    else:
+        print(f"{text(language, 'battery'):<10}{text(language, 'battery_not_detected')}")
     print(f"{text(language, 'memory'):<10}{snap.memory.percent:5.1f}%  {human_bytes(snap.memory.used)} / {human_bytes(snap.memory.total)}")
     print(f"{text(language, 'disk'):<10}{snap.disk.percent:5.1f}%  R {human_rate(snap.disk_read_rate)}  W {human_rate(snap.disk_write_rate)}")
     print(f"{text(language, 'network'):<19}↓ {human_rate(snap.net_down)}  ↑ {human_rate(snap.net_up)}")

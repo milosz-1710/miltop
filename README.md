@@ -3,7 +3,7 @@
 **A lightweight, tile-based system monitor for Linux terminals.**
 
 `miltop` presents the most useful information about the processor, memory,
-disk, network and running processes in a clean dashboard. It starts as quickly
+graphics, battery, disk, network and running processes in a clean dashboard. It starts as quickly
 as a terminal program, supports mouse and keyboard navigation, and is available
 in English and Polish.
 
@@ -16,8 +16,8 @@ Ready-to-install Linux packages are available on the
 
 | Distribution | Download | Install |
 | --- | --- | --- |
-| Debian, Ubuntu, Linux Mint | **[Download `.deb`](https://github.com/milosz-1710/miltop/releases/download/v1.3.0/miltop_1.3.0_all.deb)** | `sudo apt install ./miltop_1.3.0_all.deb` |
-| Fedora | **[Download `.rpm`](https://github.com/milosz-1710/miltop/releases/download/v1.3.0/miltop-1.3.0-1.noarch.rpm)** | `sudo dnf install ./miltop-1.3.0-1.noarch.rpm` |
+| Debian, Ubuntu, Linux Mint | **[Download `.deb`](https://github.com/milosz-1710/miltop/releases/download/v1.4.0/miltop_1.4.0_all.deb)** | `sudo apt install ./miltop_1.4.0_all.deb` |
+| Fedora | **[Download `.rpm`](https://github.com/milosz-1710/miltop/releases/download/v1.4.0/miltop-1.4.0-1.noarch.rpm)** | `sudo dnf install ./miltop-1.4.0-1.noarch.rpm` |
 
 The packages are architecture-independent: Debian marks this as `all`, while
 RPM uses `noarch`.
@@ -28,12 +28,17 @@ RPM uses `noarch`.
 - live graphs without a permanently busy redraw loop;
 - responsive per-core CPU view available with `R`;
 - processor model, physical-core/thread topology and current/max frequency;
-- integrated/dedicated GPU detection with vendor, full model and multi-GPU
-  details, plus utilization when exposed by the driver;
+- integrated/dedicated GPU detection with vendor, full model, utilization,
+  temperature, clock, graphics memory, driver and multi-GPU details;
+- Intel GPU load fallback through unprivileged DRM engine counters and NVIDIA
+  details through the driver's `nvidia-smi` tool;
+- battery model, manufacturer, charge, health, cycle count, energy, power draw
+  and remaining-time details, with a desktop-friendly no-battery state;
 - RAM generation, speed, module layout, manufacturer and part number when
   reported by `inxi` without administrator privileges;
 - six persistent interface color themes available from the `C` settings screen;
-- interactive process list with CPU/RAM sorting;
+- interactive process list with live search, configurable CPU/RAM/GPU/energy
+  columns and sorting by any visible metric;
 - safe process termination: Backspace opens a confirmation and sends SIGTERM;
 - English and Polish interface with a first-run language selector;
 - keyboard and mouse navigation;
@@ -55,7 +60,7 @@ RPM uses `noarch`.
 Download the `.deb` file from the latest GitHub release and install it with:
 
 ```bash
-sudo apt install ./miltop_1.3.0_all.deb
+sudo apt install ./miltop_1.4.0_all.deb
 ```
 
 ### Fedora
@@ -64,7 +69,7 @@ Download the `.rpm` file from the latest GitHub release and install it through
 DNF:
 
 ```bash
-sudo dnf install ./miltop-1.3.0-1.noarch.rpm
+sudo dnf install ./miltop-1.4.0-1.noarch.rpm
 ```
 
 ### From source
@@ -99,12 +104,14 @@ miltop --no-color
 | Key | Action |
 | --- | --- |
 | `↑` / `↓`, `j` / `k` | Select a component or process |
-| Mouse click | Select a tile |
+| Mouse click | Select a tile/process or sort by a process-table header |
 | `Enter` on Processes | Open the interactive process list |
 | `Backspace` | Ask before ending the selected process |
 | `R` | Open/close the live processor-core view |
 | `C` | Open interface color settings |
-| `S` | Sort processes by CPU/RAM |
+| `/` | Search processes by name or PID |
+| `S` | Cycle process sorting through visible columns and name |
+| `V` | Choose visible process columns: CPU, RAM, GPU, energy impact |
 | `L` | Change language |
 | `+` / `-` | Increase/decrease refresh frequency |
 | `Esc` | Return to the dashboard |
