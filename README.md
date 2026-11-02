@@ -16,11 +16,22 @@ Ready-to-install Linux packages are available on the
 
 | Distribution | Download | Install |
 | --- | --- | --- |
-| Debian, Ubuntu, Linux Mint | **[Download `.deb`](https://github.com/milosz-1710/miltop/releases/download/v1.4.0/miltop_1.4.0_all.deb)** | `sudo apt install ./miltop_1.4.0_all.deb` |
-| Fedora | **[Download `.rpm`](https://github.com/milosz-1710/miltop/releases/download/v1.4.0/miltop-1.4.0-1.noarch.rpm)** | `sudo dnf install ./miltop-1.4.0-1.noarch.rpm` |
+| Debian, Ubuntu, Linux Mint | **[Download `.deb`](https://github.com/milosz-1710/miltop/releases/download/v1.3.0/miltop_1.3.0_all.deb)** | `sudo apt install ./miltop_1.3.0_all.deb` |
+| Fedora | **[Download `.rpm`](https://github.com/milosz-1710/miltop/releases/download/v1.3.0/miltop-1.3.0-1.noarch.rpm)** | `sudo dnf install ./miltop-1.3.0-1.noarch.rpm` |
+| Arch Linux | **[Download `.pkg.tar.zst`](https://github.com/milosz-1710/miltop/releases/download/v1.3.0/miltop-1.3.0-1-any.pkg.tar.zst)** | `sudo pacman -U ./miltop-1.3.0-1-any.pkg.tar.zst` |
+| Arch User Repository | **[Download `PKGBUILD`](https://github.com/milosz-1710/miltop/releases/download/v1.3.0/miltop-1.3.0.PKGBUILD)** | Save as `PKGBUILD`, then run `makepkg -si` |
+| Gentoo | **[Download ebuild](https://github.com/milosz-1710/miltop/releases/download/v1.3.0/miltop-1.3.0.ebuild)** | Add it to a local overlay and run `ebuild … manifest` |
 
 The packages are architecture-independent: Debian marks this as `all`, while
 RPM uses `noarch`.
+
+## What's new in 1.3.0
+
+![New battery monitoring tab](docs/screenshots/battery-tab.png)
+
+![New graphics-card monitoring tab](docs/screenshots/graphics-tab.png)
+
+![Packages for additional Linux distributions](docs/screenshots/new-distributions.png)
 
 ## Highlights
 
@@ -60,7 +71,7 @@ RPM uses `noarch`.
 Download the `.deb` file from the latest GitHub release and install it with:
 
 ```bash
-sudo apt install ./miltop_1.4.0_all.deb
+sudo apt install ./miltop_1.3.0_all.deb
 ```
 
 ### Fedora
@@ -69,7 +80,29 @@ Download the `.rpm` file from the latest GitHub release and install it through
 DNF:
 
 ```bash
-sudo dnf install ./miltop-1.4.0-1.noarch.rpm
+sudo dnf install ./miltop-1.3.0-1.noarch.rpm
+```
+
+### Arch Linux
+
+Install the ready binary package:
+
+```bash
+sudo pacman -U ./miltop-1.3.0-1-any.pkg.tar.zst
+```
+
+The release also includes an AUR-compatible `PKGBUILD` and `.SRCINFO`. Put
+them in an empty directory and run `makepkg -si` to build locally.
+
+### Gentoo
+
+The release includes `miltop-1.3.0.ebuild` and Gentoo `metadata.xml`. Place
+them in `sys-process/miltop/` inside a local overlay, generate the Manifest,
+and install:
+
+```bash
+ebuild miltop-1.3.0.ebuild manifest
+sudo emerge sys-process/miltop
 ```
 
 ### From source
@@ -87,8 +120,8 @@ For an isolated installation you can use `pipx`:
 pipx install git+https://github.com/milosz-1710/miltop.git
 ```
 
-Both packages install the `miltop` command system-wide and use the distribution's
-`python3-psutil` dependency. An Arch `PKGBUILD` is planned next.
+All distribution packages install the `miltop` command system-wide and use the
+distribution's Python and `psutil` packages.
 
 ## Usage
 

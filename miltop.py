@@ -24,7 +24,7 @@ from typing import Any
 import psutil
 
 
-VERSION = "1.4.0"
+VERSION = "1.3.0"
 BLOCKS = " ▁▂▃▄▅▆▇█"
 CONFIG_FILE = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config")) / "miltop" / "config.json"
 THEME_NAMES = ("cyan", "green", "red", "blue", "purple", "amber")

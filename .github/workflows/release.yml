@@ -55,18 +55,25 @@ jobs:
       - name: Install packaging tools
         run: |
           sudo apt-get update
-          sudo apt-get install --yes dpkg-dev rpm
+          sudo apt-get install --yes dpkg-dev rpm zstd
           python -m pip install build
 
-      - name: Build Python, Debian and RPM packages
+      - name: Build Python, Debian, RPM, Arch and Gentoo packages
         env:
           VERSION: ${{ steps.version.outputs.number }}
         run: |
           python -m build --outdir dist
           bash packaging/build-deb.sh "$VERSION" dist
           bash packaging/build-rpm.sh "$VERSION" dist
+          bash packaging/build-arch.sh "$VERSION" dist
+          cp packaging/arch/PKGBUILD "dist/miltop-${VERSION}.PKGBUILD"
+          cp packaging/arch/.SRCINFO "dist/miltop-${VERSION}.SRCINFO"
+          cp "packaging/gentoo/miltop-${VERSION}.ebuild" dist/
+          cp packaging/gentoo/metadata.xml "dist/miltop-${VERSION}-gentoo-metadata.xml"
           dpkg-deb --info "dist/miltop_${VERSION}_all.deb"
           rpm -qip "dist/miltop-${VERSION}-1.noarch.rpm"
+          tar --zstd -tf "dist/miltop-${VERSION}-1-any.pkg.tar.zst" | grep -E 'usr/bin/miltop|[.]PKGINFO'
+          sha256sum dist/* >dist/SHA256SUMS
 
       - name: Publish GitHub release
         env:
@@ -77,7 +84,7 @@ jobs:
           if gh release view "$tag" >/dev/null 2>&1; then
             gh release upload "$tag" \
               --clobber \
-              dist/*.deb dist/*.rpm dist/*.whl dist/*.tar.gz
+              dist/*
           else
             notes=(--generate-notes)
             if [[ -f "release-notes/${tag}.md" ]]; then
@@ -86,5 +93,5 @@ jobs:
             gh release create "$tag" \
               --title "miltop ${VERSION}" \
               "${notes[@]}" \
-              dist/*.deb dist/*.rpm dist/*.whl dist/*.tar.gz
+              dist/*
           fi

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE pkgmetadata SYSTEM "https://www.gentoo.org/dtd/metadata.dtd">
+<pkgmetadata>
+  <maintainer type="person">
+    <name>Miłosz</name>
+  </maintainer>
+  <longdescription lang="en">
+    miltop is a lightweight, bilingual terminal dashboard for CPU, GPU,
+    battery, memory, disk, network and process monitoring.
+  </longdescription>
+  <upstream>
+    <remote-id type="github">milosz-1710/miltop</remote-id>
+  </upstream>
+</pkgmetadata>

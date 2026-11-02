@@ -38,11 +38,8 @@ python3 -m py_compile %{SOURCE0}
 %doc %{_docdir}/%{name}/CHANGELOG.md
 
 %changelog
-* Mon Nov 02 2026 Miłosz <79249752+milosz-1710@users.noreply.github.com> - 1.4.0-1
-- Add live GPU details, battery monitoring and process search/sorting
-
 * Mon Nov 02 2026 Miłosz <79249752+milosz-1710@users.noreply.github.com> - 1.3.0-1
-- Add GPU identification and interface color themes
+- Add live GPU details, battery monitoring and process search/sorting
 
 * Mon Oct 26 2026 Miłosz <79249752+milosz-1710@users.noreply.github.com> - 1.2.0-1
 - Add responsive per-core CPU load view

@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [1.4.0] - 2026-11-02
+## [1.3.0] - 2026-11-02
 
 ### Added
 
@@ -20,6 +20,8 @@ All notable changes to this project will be documented in this file.
   GPU and energy impact;
 - five process sorting modes: name, CPU, RAM, GPU and energy impact;
 - clickable process table headers and rows.
+- six persistent interface color themes: cyan, green, red, blue, purple and
+  amber, selectable from the `C` color settings screen.
 
 ### Changed
 
@@ -29,20 +31,6 @@ All notable changes to this project will be documented in this file.
 - the component sidebar now follows the selection in short terminals, keeping
   the new Battery and Processes tiles reachable;
 - snapshot output now includes live GPU load and battery health.
-
-## [1.3.0] - 2026-11-02
-
-### Added
-
-- detection of every DRM graphics adapter, including vendor and full PCI model;
-- best-effort classification of integrated and dedicated GPUs;
-- a graphics details view listing multiple adapters and their PCI addresses;
-- live GPU usage when the Linux driver exposes `gpu_busy_percent`;
-- six persistent interface color themes: cyan, green, red, blue, purple and
-  amber, selectable from the new `C` color settings screen.
-
-### Changed
-
 - graphics adapters remain visible even when their driver does not expose a
   utilization counter;
 - DRM connector entries such as HDMI and DisplayPort are no longer mistaken
