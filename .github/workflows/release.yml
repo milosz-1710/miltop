@@ -73,7 +73,7 @@ jobs:
           dpkg-deb --info "dist/miltop_${VERSION}_all.deb"
           rpm -qip "dist/miltop-${VERSION}-1.noarch.rpm"
           tar --zstd -tf "dist/miltop-${VERSION}-1-any.pkg.tar.zst" | grep -E 'usr/bin/miltop|[.]PKGINFO'
-          sha256sum dist/* >dist/SHA256SUMS
+          (cd dist && sha256sum * >SHA256SUMS)
 
       - name: Publish GitHub release
         env:
